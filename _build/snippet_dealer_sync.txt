@@ -1,0 +1,130 @@
+    if (row && typeof row === 'object') {
+      if (!motorSerial && (k === 'motor') && row.serial_old) motorSerial = row.serial_old;
+      if (!pinSerial && (k === 'pin') && row.serial_old) pinSerial = row.serial_old;
+      if (!bhCode && row.warranty_code) bhCode = String(row.warranty_code).trim();
+      if (!claimCode && row.claim_code) claimCode = String(row.claim_code).trim();
+      if (!claimAmount && row.claim_amount) claimAmount = row.claim_amount;
+      if (!claimSubmittedAt && row.claim_submitted_at) claimSubmittedAt = row.claim_submitted_at;
+      if (!claimApprovedAt && row.claim_approved_at) claimApprovedAt = row.claim_approved_at;
+      if (!claimStatus && row.claim_status) claimStatus = row.claim_status;
+    }
+  });
+
+  // Trích xuất từ mảng claims của Dealer Portal nếu có
+  const dealerClaims = Array.isArray(d.dealer_claims) ? d.dealer_claims : (Array.isArray(d.claims) ? d.claims : []);
+  if (dealerClaims.length > 0) {
+    const c0 = dealerClaims[0];
+    if (!bhCode && c0.work_order) bhCode = String(c0.work_order).trim();
+    if (!claimCode && (c0.number || c0.claim_code || c0.code)) claimCode = String(c0.number || c0.claim_code || c0.code).trim();
+    if (!claimAmount && c0.amount != null) claimAmount = c0.amount;
+    if (!claimSubmittedAt && (c0.submitted_at || c0.created_at)) claimSubmittedAt = c0.submitted_at || c0.created_at;
+    if (!claimApprovedAt && c0.approved_at) claimApprovedAt = c0.approved_at;
+    if (!claimStatus && c0.status) claimStatus = c0.status;
+  }
+
+  // Tra cứu tự động từ bộ nhớ đề xuất Dealer Portal (window.DEALER_CLAIMS_MAP) qua VIN và Lệnh sửa chữa
+  let matchedClaim = null;
+  if (window.DEALER_CLAIMS_MAP && window.DEALER_CLAIMS_MAP.size > 0) {
+    const cVin = String(vin).trim().toUpperCase();
+    const cWo = String(wo).trim().toUpperCase();
+    const cRo = String(d.dms_ro_code || '').trim().toUpperCase();
+    matchedClaim = window.DEALER_CLAIMS_MAP.get(cVin) ||
+                         (cVin.length >= 6 ? window.DEALER_CLAIMS_MAP.get(cVin.slice(-6)) : null) ||
+                         (cRo ? window.DEALER_CLAIMS_MAP.get(cRo) : null) ||
+                         window.DEALER_CLAIMS_MAP.get(cWo);
+    if (matchedClaim) {
+      if (!bhCode || bhCode === '—') bhCode = String(matchedClaim.workOrderNumber || matchedClaim.work_order || '').trim();
+      if (!claimCode || claimCode === '—') claimCode = String(matchedClaim.warrantyClaimNumber || matchedClaim.number || matchedClaim.claim_code || '').trim();
+      if (!claimAmount && matchedClaim.totalRequestedAmountInclTax != null) claimAmount = matchedClaim.totalRequestedAmountInclTax;
+      if (!claimSubmittedAt && (matchedClaim.createdAt || matchedClaim.submitted_at)) claimSubmittedAt = matchedClaim.createdAt || matchedClaim.submitted_at;
+      if (!claimApprovedAt && (matchedClaim.approvedDate || matchedClaim.approved_at)) claimApprovedAt = matchedClaim.approvedDate || matchedClaim.approved_at;
+      if (!claimStatus && matchedClaim.status) claimStatus = matchedClaim.status;
+    }
+  }
+
+  // Điều kiện xác định xe ĐÃ CÓ BẢNG CẬP NHẬT LINH KIỆN (ô khoanh đỏ trong ServiceOS):
+  // CHỈ CÓ BẢNG CẬP NHẬT KHI THỰC SỰ CÓ DỮ LIỆU BẢO HÀNH LINH KIỆN:
+  // 1. Có Số máy ĐC hoặc Serial PIN (Không tính sạc)
+  // 2. Có Ngày tháo ĐC hoặc Ngày tháo PIN
+  // 3. Có Lệnh bảo hành (dms_warranty_code) hoặc Mã đề xuất duyệt (WC-...)
+  // 4. Có Trạng thái bảo hành linh kiện cụ thể (waiting_motor, waiting_battery)
+  // 5. Có warranty_extra của motor, pin, esim thực tế
+  const hasPartSerial = Boolean(motorSerial || pinSerial);
+  const hasRemovedDate = Boolean(motorRemovedAt || partsRemovedAt);
+  const hasWarrantyDoc = Boolean(bhCode || (claimCode && claimCode !== '—' && claimCode !== '-'));
+  const hasSpecificPartStatus = Boolean(
+    warrantyStatus === 'waiting_motor' || 
+    warrantyStatus === 'waiting_battery' || 
+    bhOrderStatus === 'waiting_motor' || 
+    bhOrderStatus === 'waiting_battery' ||
+    ((extra.motor && (extra.motor.serial_old || extra.motor.warranty_code)) ||
+     (extra.pin && (extra.pin.serial_old || extra.pin.warranty_code)) ||
+     (extra.esim && (extra.esim.warranty_code || extra.esim.claim_code)))
+  );
+
+  // Xe CHỈ có bảng cập nhật khi có ít nhất một thông tin bảo hành thực tế
+  const hasBangCapNhat = Boolean(
+    hasPartSerial || 
+    hasRemovedDate || 
+    hasWarrantyDoc || 
+    hasSpecificPartStatus
+  );
+
+  // Tính trạng thái Check theo 4 quy tắc
+  const checkStatus = evaluateCheckStatus(hasLoi, hasKtvNote, hasBangCapNhat);
+
+  // Phân loại thanh toán (Phân loại TT)
+  const phanLoaiTtRaw = String(
+    d.phanLoaiTt || d.phan_loai_tt || d.paymentType || d.payment_type || d.billing_type || d.order_type || d.loai_sua_chua || ''
+  ).trim();
+
+  const isWarrantyPayment = Boolean(
+    norm(phanLoaiTtRaw).includes('bao hanh') || 
+    norm(phanLoaiTtRaw) === 'bh' || 
+    norm(phanLoaiTtRaw).includes('warranty') || 
+    hasBangCapNhat || 
+    Boolean(bhCode && bhCode !== '—') ||
+    Boolean(warrantyStatus && warrantyStatus !== '—')
+  );
+  const phanLoaiTt = phanLoaiTtRaw || (isWarrantyPayment ? 'Bảo hành' : 'Khách trả');
+  const isUnsubmittedWarranty = isWarrantyPayment && (!claimCode || claimCode === '—' || !claimCode.startsWith('WC-'));
+
+  // Nhóm khách hàng (GSM, Bship, Khách lẻ, Doanh nghiệp khác)
+  const matchedCustName = (matchedClaim && matchedClaim.customer && matchedClaim.customer.customerName) || '';
+  const matchedCompName = (matchedClaim && matchedClaim.customer && matchedClaim.customer.customerCompanyName) || '';
+  const custGroup = getCustomerGroup(customer || matchedCustName, d.customerCompanyName || matchedCompName);
+
+  // Chuẩn hóa ngày nhận xe
+  const rawDate = d.dateStr || d.received_at || d.created_at || new Date().toISOString().slice(0, 10);
+  const isoDate = formatIsoDate(rawDate) || new Date().toISOString().slice(0, 10);
+  const dispDate = formatDisplayDate(isoDate);
+
+  const order = {
+    customerCompanyName: d.customerCompanyName || matchedCompName,
+    customerGroup: custGroup,
+    phanLoaiTt: phanLoaiTt,
+    isWarrantyPayment: isWarrantyPayment,
+    isUnsubmittedWarranty: isUnsubmittedWarranty,
+    id: (d && d.id) || ('ord_' + (wo || plate || i).replace(/[^a-zA-Z0-9]/g, '') + '_' + i),
+    wo: wo,
+    plate: plate,
+    vin: vin,
+    vehicle: vehicle,
+    customer: customer,
+    tech: tech,
+    issue: issue,
+    issueDesc: issueDesc,
+    faultList: faultList,
+    faultStr: faultList.join(', '),
+    note: note,
+    status: status,
+    warrantyStatus: warrantyStatus,
+    pinSerial: pinSerial,
+    pinSerialNew: pinSerialNew,
+    motorSerial: motorSerial,
+    motorSerialNew: motorSerialNew,
+    chargerSerial: chargerSerial,
+    removedAt: removedAt,
+    partsRemovedAt: partsRemovedAt,
+    motorRemovedAt: motorRemovedAt,
+    pinType: pinType,

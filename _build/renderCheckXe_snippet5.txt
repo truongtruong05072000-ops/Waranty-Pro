@@ -1,0 +1,200 @@
+                <th style="width:45px;text-align:center" class="sortable-th" onclick="setCheckXeSort('stt')">STT ${getSortIcon('stt')}</th>
+                <th style="width:130px" class="sortable-th" onclick="setCheckXeSort('plate')">BIỂN SỐ / MÃ WO ${getSortIcon('plate')}</th>
+                <th style="width:130px" class="sortable-th" onclick="setCheckXeSort('vehicle')">DÒNG XE / VIN ${getSortIcon('vehicle')}</th>
+                <th style="width:130px" class="sortable-th" onclick="setCheckXeSort('tech')">KTV PHỤ TRÁCH ${getSortIcon('tech')}</th>
+                <th style="width:150px" class="sortable-th" onclick="setCheckXeSort('category')">HẠNG MỤC & LỖI ${getSortIcon('category')}</th>
+                <th style="min-width:320px" class="sortable-th" onclick="setCheckXeSort('bang')">BẢNG CẬP NHẬT PHÍA DƯỚI ${getSortIcon('bang')}</th>
+                <th style="width:140px" class="sortable-th" onclick="setCheckXeSort('note')">GHI CHÚ KTV ${getSortIcon('note')}</th>
+                <th style="width:115px" class="sortable-th" onclick="setCheckXeSort('date')">NGÀY NHẬN ${getSortIcon('date')}</th>
+                <th style="width:135px" class="sortable-th" onclick="setCheckXeSort('status')">TRẠNG THÁI CHECK ${getSortIcon('status')}</th>
+                <th style="width:80px;text-align:center">THAO TÁC</th>
+              </tr>
+              <tr class="filter-header-row">
+                <th style="text-align:center"><span style="font-size:11px;color:var(--text-muted)">Lọc:</span></th>
+                <th><input type="text" class="col-filter-input" placeholder="🔍 Biển / WO..." value="${esc(state.checkXe.searchPlate || '')}" oninput="setCheckXeColFilter('searchPlate', this.value)"></th>
+                <th>
+                  <select class="col-filter-select" onchange="setCheckXeColFilter('filterVehicle', this.value)">
+                    <option value="">-- Tất cả xe --</option>
+                    ${vehicles.map(v => `<option value="${esc(v)}" ${state.checkXe.filterVehicle === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}
+                  </select>
+                </th>
+                <th>
+                  <select class="col-filter-select" onchange="setCheckXeColFilter('filterTech', this.value)">
+                    <option value="">-- Tất cả KTV --</option>
+                    ${techs.map(t => `<option value="${esc(t)}" ${state.checkXe.filterTech === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}
+                  </select>
+                </th>
+                <th>
+                  <select class="col-filter-select" onchange="setCheckXeColFilter('filterCategory', this.value)">
+                    <option value="all">-- Tất cả mục --</option>
+                    ${ISSUE_CATEGORIES.map(c => `<option value="${c.id}" ${state.checkXe.filterCategory === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+                  </select>
+                </th>
+                <th>
+                  <select class="col-filter-select" onchange="setCheckXeColFilter('filterPartStatus', this.value)">
+                    <option value="all">-- Tất cả TT linh kiện --</option>
+                    <option value="waiting_motor" ${state.checkXe.filterPartStatus === 'waiting_motor' ? 'selected' : ''}>⚡ Chờ Động cơ</option>
+                    <option value="waiting_battery" ${state.checkXe.filterPartStatus === 'waiting_battery' ? 'selected' : ''}>🔋 Chờ PIN</option>
+                    <option value="checking" ${state.checkXe.filterPartStatus === 'checking' ? 'selected' : ''}>⏳ Chờ kiểm tra</option>
+                    <option value="has_part" ${state.checkXe.filterPartStatus === 'has_part' ? 'selected' : ''}>📦 Có cập nhật</option>
+                    <option value="none" ${state.checkXe.filterPartStatus === 'none' ? 'selected' : ''}>⚪ Chưa có cập nhật</option>
+                  </select>
+                </th>
+                <th>
+                  <select class="col-filter-select" onchange="setCheckXeColFilter('filterHasNote', this.value)">
+                    <option value="all">-- Tất cả --</option>
+                    <option value="yes" ${state.checkXe.filterHasNote === 'yes' ? 'selected' : ''}>📝 Đã có ghi chú</option>
+                    <option value="no" ${state.checkXe.filterHasNote === 'no' ? 'selected' : ''}>⚪ Chưa có ghi chú</option>
+                  </select>
+                </th>
+                <th>
+                  <select class="col-filter-select" onchange="setCheckXeColFilter('filterDate', this.value)">
+                    <option value="all">-- Tất cả ngày --</option>
+                    <option value="today" ${state.checkXe.filterDate === 'today' ? 'selected' : ''}>Hôm nay</option>
+                    <option value="yesterday" ${state.checkXe.filterDate === 'yesterday' ? 'selected' : ''}>Hôm qua</option>
+                    <option value="last7" ${state.checkXe.filterDate === 'last7' ? 'selected' : ''}>7 ngày qua</option>
+                    ${sortedDates.map(iso => `<option value="${iso}" ${state.checkXe.filterDate === iso ? 'selected' : ''}>${dateCounts[iso].disp}</option>`).join('')}
+                  </select>
+                </th>
+                <th>
+                  <select class="col-filter-select" onchange="setCheckXeColFilter('filterStatus', this.value)">
+                    <option value="all">-- Tất cả trạng thái --</option>
+                    <option value="no_fault" ${state.checkXe.filterStatus === 'no_fault' ? 'selected' : ''}>✅ Xe không lỗi (${noFaultList.length})</option>
+                    <option value="unchecked" ${state.checkXe.filterStatus === 'unchecked' ? 'selected' : ''}>🔴 Chưa check (${uncheckedList.length})</option>
+                    <option value="checked" ${state.checkXe.filterStatus === 'checked' ? 'selected' : ''}>✅ Đã check (${checkedList.length})</option>
+                    <option value="recheck" ${state.checkXe.filterStatus === 'recheck' ? 'selected' : ''}>⚠️ Cần check lại (${recheckList.length})</option>
+                  </select>
+                </th>
+                <th style="text-align:center">
+                  <button class="btn secondary" style="width:100%;padding:3px 4px;font-size:11px" onclick="resetCheckXeFilters()">🔄 Xóa</button>
+                </th>
+              </tr>
+            ` : `
+              <!-- CHẾ ĐỘ XEM CỘT CHI TIẾT (TÁCH CÁC MỤC TRONG THẺ THÀNH CỘT ĐỂ LỌC) -->
+              <tr>
+                <th style="width:40px;text-align:center" class="sortable-th" onclick="setCheckXeSort('stt')">STT ${getSortIcon('stt')}</th>
+                <th style="width:120px" class="sortable-th" onclick="setCheckXeSort('plate')">BIỂN SỐ / WO ${getSortIcon('plate')}</th>
+                <th style="width:110px" class="sortable-th" onclick="setCheckXeSort('vehicle')">DÒNG XE / VIN ${getSortIcon('vehicle')}</th>
+                <th style="width:115px" class="sortable-th" onclick="setCheckXeSort('tech')">KTV PHỤ TRÁCH ${getSortIcon('tech')}</th>
+                <th style="width:125px" class="sortable-th" onclick="setCheckXeSort('category')">HẠNG MỤC LỖI ${getSortIcon('category')}</th>
+                <th style="width:125px" class="sortable-th" onclick="setCheckXeSort('part_status')">TRẠNG THÁI LK ${getSortIcon('part_status')}</th>
+                <th style="width:145px" class="sortable-th" onclick="setCheckXeSort('part_serial')">SỐ MÁY / SERIAL ${getSortIcon('part_serial')}</th>
+                <th style="width:105px" class="sortable-th" onclick="setCheckXeSort('part_removed')">NGÀY THÁO LK ${getSortIcon('part_removed')}</th>
+                <th style="width:130px" class="sortable-th" onclick="setCheckXeSort('bh_code')">LỆNH BH / ĐXBH ${getSortIcon('bh_code')}</th>
+                <th style="min-width:120px" class="sortable-th" onclick="setCheckXeSort('note')">GHI CHÚ KTV ${getSortIcon('note')}</th>
+                <th style="width:105px" class="sortable-th" onclick="setCheckXeSort('date')">NGÀY NHẬN ${getSortIcon('date')}</th>
+                <th style="width:130px" class="sortable-th" onclick="setCheckXeSort('status')">TRẠNG THÁI CHECK ${getSortIcon('status')}</th>
+                <th style="width:75px;text-align:center">THAO TÁC</th>
+              </tr>
+              <tr class="filter-header-row">
+                <th style="text-align:center"><span style="font-size:11px;color:var(--text-muted)">Lọc:</span></th>
+                <th><input type="text" class="col-filter-input" placeholder="🔍 Biển / WO..." value="${esc(state.checkXe.searchPlate || '')}" oninput="setCheckXeColFilter('searchPlate', this.value)"></th>
+                <th>
+                  <select class="col-filter-select" onchange="setCheckXeColFilter('filterVehicle', this.value)">
+                    <option value="">-- Xe --</option>
+                    ${vehicles.map(v => `<option value="${esc(v)}" ${state.checkXe.filterVehicle === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}
+                  </select>
+                </th>
+                <th>
+                  <select class="col-filter-select" onchange="setCheckXeColFilter('filterTech', this.value)">
+                    <option value="">-- KTV --</option>
+                    ${techs.map(t => `<option value="${esc(t)}" ${state.checkXe.filterTech === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}
+                  </select>
+                </th>
+                <th>
+                  <select class="col-filter-select" onchange="setCheckXeColFilter('filterCategory', this.value)">
+                    <option value="all">-- Mục lỗi --</option>
+                    ${ISSUE_CATEGORIES.map(c => `<option value="${c.id}" ${state.checkXe.filterCategory === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+                  </select>
+                </th>
+                <th>
+                  <select class="col-filter-select" onchange="setCheckXeColFilter('filterPartStatus', this.value)">
+                    <option value="all">-- TT LK --</option>
+                    <option value="waiting_motor" ${state.checkXe.filterPartStatus === 'waiting_motor' ? 'selected' : ''}>⚡ Chờ Động cơ</option>
+                    <option value="waiting_battery" ${state.checkXe.filterPartStatus === 'waiting_battery' ? 'selected' : ''}>🔋 Chờ PIN</option>
+                    <option value="checking" ${state.checkXe.filterPartStatus === 'checking' ? 'selected' : ''}>⏳ Chờ kiểm tra</option>
+                    <option value="has_part" ${state.checkXe.filterPartStatus === 'has_part' ? 'selected' : ''}>📦 Có LK</option>
+                    <option value="none" ${state.checkXe.filterPartStatus === 'none' ? 'selected' : ''}>⚪ Không LK</option>
+                  </select>
+                </th>
+                <th>
+                  <input type="text" class="col-filter-input" placeholder="🔍 Số máy/Serial..." value="${esc(state.checkXe.searchPartSerial || '')}" oninput="setCheckXeColFilter('searchPartSerial', this.value)">
+                </th>
+                <th>
+                  <select class="col-filter-select" onchange="setCheckXeColFilter('filterRemovedDate', this.value)">
+                    <option value="all">-- Tháo --</option>
+                    <option value="has_date" ${state.checkXe.filterRemovedDate === 'has_date' ? 'selected' : ''}>Đã tháo</option>
+                    <option value="no_date" ${state.checkXe.filterRemovedDate === 'no_date' ? 'selected' : ''}>Chưa tháo</option>
+                  </select>
+                </th>
+                <th>
+                  <input type="text" class="col-filter-input" placeholder="🔍 Lệnh BH / ĐX..." value="${esc(state.checkXe.searchBhCode || '')}" oninput="setCheckXeColFilter('searchBhCode', this.value)">
+                </th>
+                <th>
+                  <select class="col-filter-select" onchange="setCheckXeColFilter('filterHasNote', this.value)">
+                    <option value="all">-- Ghi chú --</option>
+                    <option value="yes" ${state.checkXe.filterHasNote === 'yes' ? 'selected' : ''}>📝 Có ghi chú</option>
+                    <option value="no" ${state.checkXe.filterHasNote === 'no' ? 'selected' : ''}>⚪ Chưa có</option>
+                  </select>
+                </th>
+                <th>
+                  <select class="col-filter-select" onchange="setCheckXeColFilter('filterDate', this.value)">
+                    <option value="all">-- Ngày --</option>
+                    <option value="today" ${state.checkXe.filterDate === 'today' ? 'selected' : ''}>Hôm nay</option>
+                    <option value="yesterday" ${state.checkXe.filterDate === 'yesterday' ? 'selected' : ''}>Hôm qua</option>
+                    <option value="last7" ${state.checkXe.filterDate === 'last7' ? 'selected' : ''}>7 ngày</option>
+                    ${sortedDates.map(iso => `<option value="${iso}" ${state.checkXe.filterDate === iso ? 'selected' : ''}>${dateCounts[iso].disp}</option>`).join('')}
+                  </select>
+                </th>
+                <th>
+                  <select class="col-filter-select" onchange="setCheckXeColFilter('filterStatus', this.value)">
+                    <option value="all">-- Trạng thái --</option>
+                    <option value="no_fault" ${state.checkXe.filterStatus === 'no_fault' ? 'selected' : ''}>✅ Xe không lỗi (${noFaultList.length})</option>
+                    <option value="unchecked" ${state.checkXe.filterStatus === 'unchecked' ? 'selected' : ''}>🔴 Chưa check (${uncheckedList.length})</option>
+                    <option value="checked" ${state.checkXe.filterStatus === 'checked' ? 'selected' : ''}>✅ Đã check (${checkedList.length})</option>
+                    <option value="recheck" ${state.checkXe.filterStatus === 'recheck' ? 'selected' : ''}>⚠️ Cần check lại (${recheckList.length})</option>
+                  </select>
+                </th>
+                <th style="text-align:center">
+                  <button class="btn secondary" style="width:100%;padding:3px 4px;font-size:11px" onclick="resetCheckXeFilters()">🔄 Xóa</button>
+                </th>
+              </tr>
+            `}
+          </thead>
+          <tbody id="checkXeTbody">
+            ${rowsHtml || `<tr><td colspan="${state.checkXe.viewMode === 'card' ? 10 : 13}" style="text-align:center;padding:36px;color:var(--text-muted);font-size:13px">Không tìm thấy xe nào phù hợp với bộ lọc hiện tại.<br><button class="btn secondary" style="margin-top:10px;font-size:12px" onclick="resetCheckXeFilters()">🔄 Xóa các bộ lọc để xem lại danh sách</button></td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+// Bóc tách Excel ServiceOS thông minh hỗ trợ đầy đủ 4 quy tắc
+function parseServiceOsWorkbook(wb){
+  let targetWs = null;
+  for(const sn of wb.SheetNames){
+    const normSn = norm(sn);
+    if(normSn.includes('lenh sua chua') || normSn.includes('phieu sua chua') || normSn.includes('work order')){
+      targetWs = wb.Sheets[sn];
+      break;
+    }
+  }
+  if(!targetWs) targetWs = wb.Sheets[wb.SheetNames[0]];
+  const rows = sheetRows(targetWs);
+  const hi = findHeaderRow(rows);
+  if(hi < 0) return [];
+  const H = rows[hi], map = buildColMap(H);
+  
+  const orders = [];
+  for(let r = hi + 1; r < rows.length; r++){
+    const row = rows[r]; if(!row || row.length === 0) continue;
+    const plate = String(pickCol(map, row, ['bien so', 'bien so xe', 'bsx', 'bien']) || '').trim();
+    const wo = String(pickCol(map, row, ['ma lenh sua chua', 'lenh sua chua', 'ma phieu', 'wo', 'dms_ro_code', 'code']) || '').trim();
+    if(!plate && !wo) continue;
+    
+    const vin = String(pickCol(map, row, ['vin', 'so khung']) || '').trim();
+    const vehicle = String(pickCol(map, row, ['dong xe', 'loai xe', 'model']) || '').trim();
+    const customer = String(pickCol(map, row, ['khach hang', 'khach']) || '').trim();
+    const tech = String(pickCol(map, row, ['ktv sua chua, bao hanh', 'ktv sua chua', 'ky thuat vien', 'ktv', 'tho']) || '').trim();
+    

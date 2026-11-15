@@ -1,0 +1,12 @@
+# ===================================================================
+# Cloudflare Worker Configuration
+# Domain: https://fragrant-heart-e2d4.truongtruong-05072000.workers.dev/
+# ===================================================================
+
+name = "fragrant-heart-e2d4"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+[vars]
+# URL của Backend Real-time (Render / Railway) để Reverse Proxy và Tunnel WebSocket
+BACKEND_URL = "https://baohanh-pro-realtime.onrender.com"

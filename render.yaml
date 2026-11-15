@@ -1,0 +1,37 @@
+# ===================================================================
+# Render Blueprint: VinFast CarOn Thới An Realtime Backend (N54511)
+# ===================================================================
+
+services:
+  - type: web
+    name: baohanh-pro-realtime
+    runtime: node
+    plan: starter
+    region: singapore
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 3001
+      - key: DEALER_CODE
+        value: N54511
+      - key: BRANCH_ID
+        value: "2"
+      - key: SERVICEOS_BASE_URL
+        value: https://att-serviceos.anthinhtech.vn
+      - key: SERVICEOS_USERNAME
+        sync: false
+      - key: SERVICEOS_PASSWORD
+        sync: false
+      - key: SERVICEOS_POLL_INTERVAL_MS
+        value: "4000"
+      - key: DEALER_PORTAL_BASE_URL
+        value: https://dealer-portal-api.vinfast.com
+      - key: DEALER_PORTAL_REFRESH_TOKEN
+        sync: false
+      - key: DP_STREAM_A_INTERVAL_MS
+        value: "35000"
+      - key: DP_STREAM_B_INTERVAL_MS
+        value: "5000"

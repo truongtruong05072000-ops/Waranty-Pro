@@ -1,0 +1,60 @@
+  return { addedCount, updatedCount, total: state.checkXe.orders.length };
+}
+
+// Hàm Cập nhật đè đề xuất Dealer Portal lên hệ thống
+function upsertDealerPortalClaims(claims) {
+  if (!claims) return 0;
+  const list = Array.isArray(claims) ? claims : (claims.data || claims.rows || claims.items || []);
+  if (!Array.isArray(list) || list.length === 0) return 0;
+
+  // Cập nhật DEALER_CLAIMS_MAP đè lên
+  if (!window.DEALER_CLAIMS_MAP) window.DEALER_CLAIMS_MAP = new Map();
+  list.forEach(c => {
+    if (!c) return;
+    if (c.vin) {
+      const v = String(c.vin).trim().toUpperCase();
+      window.DEALER_CLAIMS_MAP.set(v, c);
+      if (v.length >= 6) window.DEALER_CLAIMS_MAP.set(v.slice(-6), c);
+    }
+    if (c.workOrderNumber) {
+      window.DEALER_CLAIMS_MAP.set(String(c.workOrderNumber).trim().toUpperCase(), c);
+    }
+    if (c.warrantyClaimNumber) {
+      window.DEALER_CLAIMS_MAP.set(String(c.warrantyClaimNumber).trim().toUpperCase(), c);
+    }
+  });
+
+  // Hợp nhất vào nguồn Doanh thu (state.sources)
+  window.parseDealerPortalJson(list, 'VinFast Dealer Portal (Real-time)', false);
+
+  // Cập nhật đè Lệnh BH / ĐXBH lên các xe hiện tại mà không xóa danh sách xe
+  if (state.checkXe && state.checkXe.orders) {
+    state.checkXe.orders.forEach((o, i) => {
+      const reNorm = normalizeOrder(o._raw || o, i);
+      if (reNorm.bhCode && reNorm.bhCode !== '—') o.bhCode = reNorm.bhCode;
+      if (reNorm.claimCode && reNorm.claimCode !== '—') o.claimCode = reNorm.claimCode;
+      if (reNorm.claimAmount) o.claimAmount = reNorm.claimAmount;
+      if (reNorm.claimStatus) o.claimStatus = reNorm.claimStatus;
+      if (reNorm.checkStatus) o.checkStatus = reNorm.checkStatus;
+      if (reNorm.hasBangCapNhat !== undefined) o.hasBangCapNhat = reNorm.hasBangCapNhat;
+      o.bhCodeText = reNorm.bhCodeText;
+      o.claimCodeText = reNorm.claimCodeText;
+    });
+    saveCheckXeOrders();
+  }
+
+  return list.length;
+}
+
+function handleServiceOsRealtimeOrders(orders, isSilent = true) {
+  if (!Array.isArray(orders) || orders.length === 0) return;
+  lastServiceOsSyncTime = Date.now();
+  
+  // CẬP NHẬT ĐÈ LÊN XE ĐÃ CÓ - KHÔNG XÓA DỮ LIỆU CŨ
+  const res = upsertServiceOsOrders(orders);
+  
+  // Cập nhật giao diện mượt mà tại chỗ (không xóa trắng hay nháy màn hình)
+  if (typeof renderCheckXe === 'function') {
+    renderCheckXe({ inPlace: true });
+  }
+

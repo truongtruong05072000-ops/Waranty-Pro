@@ -1,0 +1,25 @@
+      }
+    }
+  }
+  return [...byKey.values()];
+}
+
+/* ============================ Computation ============================ */
+function computeAll(){
+  const recs = allActiveRecords();
+  const isEx = settings.vatMode === 'ex';
+  for(const r of recs){
+    r.total = isEx ? (r.totalEx ?? r.total) : (r.totalInc ?? r.total);
+    r.labor = isEx ? (r.laborEx ?? r.labor) : (r.laborInc ?? r.labor);
+    for(const p of r.parts){
+      p.money = isEx ? (p.moneyEx ?? p.money) : (p.moneyInc ?? p.money);
+    }
+  }
+  const unknownStatus = new Map();
+  let noDate = 0;
+  for(const r of recs){
+    const k = statusKind(r.status);
+    r.kind = k.k; r.kindLabel = k.label; r.badge = k.badge;
+    if(k.k === 'unknown') unknownStatus.set(k.label, (unknownStatus.get(k.label) || 0) + 1);
+    r.cm = cycleMonth(r.date, settings.cut, settings.cycle22);
+    if(!r.cm) noDate++;

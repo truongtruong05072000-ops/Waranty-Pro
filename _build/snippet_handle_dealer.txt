@@ -1,0 +1,95 @@
+  lastServiceOsSyncTime = Date.now();
+  
+  // CẬP NHẬT ĐÈ LÊN XE ĐÃ CÓ - KHÔNG XÓA DỮ LIỆU CŨ
+  const res = upsertServiceOsOrders(orders);
+  
+  // Cập nhật giao diện mượt mà tại chỗ (không xóa trắng hay nháy màn hình)
+  if (typeof renderCheckXe === 'function') {
+    renderCheckXe({ inPlace: true });
+  }
+
+  const changeTxt = res.addedCount > 0 ? ` (+${res.addedCount} xe mới)` : (res.updatedCount > 0 ? ` (cập nhật ${res.updatedCount} xe)` : '');
+  showRealtimeToast(`Đã đồng bộ ${res.total} xe ServiceOS!${changeTxt}`, '🚗');
+  updateRealtimeStatusChip();
+}
+
+function handleDealerPortalRealtimeClaims(claims) {
+  if (!claims) return;
+  lastDealerPortalSyncTime = Date.now();
+  
+  // CẬP NHẬT ĐÈ ĐỀ XUẤT DEALER PORTAL - KHÔNG XÓA DỮ LIỆU CŨ
+  const count = upsertDealerPortalClaims(claims);
+  
+  renderAll();
+  if (typeof renderCheckXe === 'function') {
+    renderCheckXe({ inPlace: true });
+  }
+  showRealtimeToast(`Đã cập nhật ${count} đề xuất bảo hành từ Dealer Portal!`, '💼');
+  updateRealtimeStatusChip();
+}
+
+// 1. Lắng nghe BroadcastChannel (kết nối chéo tab trong cùng trình duyệt)
+let realtimeChannel = null;
+try {
+  if (typeof BroadcastChannel !== 'undefined') {
+    realtimeChannel = new BroadcastChannel('BAOHANH_REALTIME_SYNC');
+    realtimeChannel.onmessage = function(ev) {
+      const data = ev.data;
+      if (!data) return;
+      if (data.type === 'SERVICEOS_REALTIME' || data.type === 'SERVICEOS_DATA') {
+        handleServiceOsRealtimeOrders(data.orders || data.data);
+      } else if (data.type === 'DEALER_PORTAL_REALTIME' || data.type === 'DEALER_PORTAL_DATA') {
+        handleDealerPortalRealtimeClaims(data.claims || data.data);
+      }
+    };
+  }
+} catch(e){}
+
+// 2. Lắng nghe window.postMessage (từ Extension hoặc Tiện ích)
+window.addEventListener('message', function(ev){
+  const data = ev.data;
+  if (!data || typeof data !== 'object') return;
+  if (data.type === 'SERVICEOS_REALTIME') {
+    handleServiceOsRealtimeOrders(data.orders);
+  } else if (data.type === 'SERVICEOS_DATA' && Array.isArray(data.orders)) {
+    handleServiceOsRealtimeOrders(data.orders, false);
+  } else if (data.type === 'DEALER_PORTAL_REALTIME' || data.type === 'DEALER_PORTAL_DATA') {
+    handleDealerPortalRealtimeClaims(data.claims);
+  }
+});
+
+// 3. Lắng nghe storage event (fallback đồng bộ chéo tab khi có tab khác cập nhật)
+window.addEventListener('storage', function(ev){
+  if (ev.key === 'bh_realtime_serviceos_event' && ev.newValue) {
+    try {
+      const p = JSON.parse(ev.newValue);
+      if (p && p.orders) handleServiceOsRealtimeOrders(p.orders);
+    } catch(e){}
+  } else if (ev.key === 'bh_realtime_dealer_event' && ev.newValue) {
+    try {
+      const p = JSON.parse(ev.newValue);
+      if (p && p.claims) handleDealerPortalRealtimeClaims(p.claims);
+    } catch(e){}
+  }
+});
+
+function checkUrlImport(){
+  const hash = window.location.hash;
+  if(hash && hash.includes('serviceos=')){
+    try {
+      const idx = hash.indexOf('serviceos=');
+      const raw = hash.slice(idx + 10);
+      const jsonStr = decodeURIComponent(raw);
+      const data = JSON.parse(jsonStr);
+      if(Array.isArray(data) && data.length > 0){
+        const orders = data.map((d, i) => normalizeOrder(d, i));
+        state.checkXe.orders = orders;
+        saveCheckXeOrders();
+        if(typeof window.switchTab === 'function') window.switchTab('checkxe');
+        try { history.replaceState(null, '', location.pathname); } catch(e){}
+        setTimeout(() => {
+          alert(`🎉 ĐÃ ĐỒNG BỘ THÀNH CÔNG ${orders.length} XE ĐANG TRONG XƯỞNG TỪ SERVICEOS!`);
+        }, 120);
+      }
+    } catch(err){
+      console.error('Error importing serviceos from URL hash:', err);

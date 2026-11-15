@@ -1,0 +1,12 @@
+import re, sys
+sys.stdout.reconfigure(encoding='utf-8')
+
+with open('_build/app_template2.html', 'r', encoding='utf-8', errors='ignore') as f:
+    c = f.read()
+
+m = re.search(r'function upsertServiceOsOrders\([^\)]*\)\s*\{([\s\S]*?)(?=\nfunction |\nwindow\.|\nconst |\nlet )', c)
+if m:
+    print('Found upsertServiceOsOrders:')
+    print(m.group(0))
+else:
+    print('upsertServiceOsOrders NOT found!')

@@ -1,0 +1,70 @@
+
+  <!-- TAB 4: TRA CỨU ĐỀ XUẤT -->
+  <div class="tab-pane" id="pane_claims">
+    <div id="claimsContent"></div>
+  </div>
+
+  <!-- TAB 5: CHECK LỖI XE HÀNG NGÀY (SERVICEOS) -->
+  <div class="tab-pane" id="pane_checkxe">
+    <div id="checkXeContent"></div>
+  </div>
+
+  <!-- TAB 6: TỆP & CÀI ĐẶT -->
+  <div class="tab-pane" id="pane_settings">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">📁 Nhập dữ liệu file Excel</div>
+          <div class="card-subtitle">Kéo thả file vào khu vực bên dưới hoặc bấm để chọn file từ máy tính</div>
+        </div>
+      </div>
+      
+      <div class="dropzone-grid">
+        <div>
+          <div class="dropzone" id="dropZone">
+            <div class="dropzone-icon">📋</div>
+            <div class="dropzone-title">File Dữ Liệu BẢO HÀNH</div>
+            <div class="dropzone-desc">File Active warranty claim, DeXuatBaoHanh_PhuTung, hoặc file Portal (warranty-claims). Hỗ trợ chọn nhiều file.</div>
+          </div>
+          <input type="file" id="fileInput" multiple accept=".xlsx,.xls">
+          <div style="margin-top:8px;display:flex;gap:8px">
+            <button class="btn secondary" style="flex:1;font-size:12px;padding:7px 10px" onclick="importDealerPortalClipboard()">📋 Dán JSON Dealer Portal (Ctrl+V)</button>
+            <button class="btn secondary" style="flex:1;font-size:12px;padding:7px 10px" onclick="$('#fileInput').click()">📁 Chọn tệp Excel (.xlsx)</button>
+          </div>
+          <div class="source-list" id="srcList"></div>
+          <div id="parseWarn" style="margin-top:10px"></div>
+        </div>
+        
+        <div>
+          <div class="dropzone" id="invDropZone">
+            <div class="dropzone-icon">📦</div>
+            <div class="dropzone-title">File TỒN KHO PHỤ TÙNG (Tùy chọn)</div>
+            <div class="dropzone-desc">File Excel chứa cột "Mã" / "Code" và cột "Tồn" / "Số lượng" để so sánh trực tiếp với kế hoạch.</div>
+          </div>
+          <input type="file" id="invFileInput" accept=".xlsx,.xls">
+          <div class="source-list" id="invSrcList"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">⚙️ Thiết lập mục tiêu &amp; Quy tắc tính</div>
+          <div class="card-subtitle">Tùy chỉnh tháng kế hoạch, doanh thu mục tiêu và ngày chốt sổ</div>
+        </div>
+      </div>
+      
+      <div class="settings-grid">
+        <div class="field-group">
+          <label class="field-label">Tháng lập kế hoạch (Tháng mục tiêu)</label>
+          <input type="month" id="targetMonth" class="field-input">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Mục tiêu doanh thu (VND / tháng)</label>
+          <input type="number" id="targetValue" class="field-input" step="1000000" min="0">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Ngày chốt doanh thu trong tháng</label>
+          <input type="number" id="cutDay" class="field-input" min="1" max="28" value="22">
+        </div>

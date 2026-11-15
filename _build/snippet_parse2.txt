@@ -1,0 +1,130 @@
+      rec.labor += parseNum(pickCol(m2, row, ['tien gom thue'])) || parseNum(pickCol(m2, row, ['thanh tien sau km']));
+    }
+  }
+  for(const rec of proposals.values()){
+    if(!rec.total) rec.total = rec.parts.reduce((s, p) => s + p.money, 0) + rec.labor + rec.outsource;
+    rec.totalInc = rec.total; rec.totalEx = rec.total;
+    rec.laborInc = rec.labor; rec.laborEx = rec.labor;
+    for(const p of rec.parts){ p.moneyInc = p.money; p.moneyEx = p.money; }
+  }
+  return [...proposals.values()];
+}
+
+/* ============================ State ============================ */
+const state = {
+  activeTab: 'overview',
+  sources: [],
+  computed: null,
+  filters: { cm: '', kind: '', q: '' },
+  inventory: new Map(),
+  invFileName: ''
+};
+
+function defaultTargetMonth(){
+  const now = new Date();
+  let y = now.getFullYear(), m = now.getMonth() + 1;
+  if(now.getDate() > 22){ m++; if(m > 12){ m = 1; y++; } }
+  return `${y}-${String(m).padStart(2, '0')}`;
+}
+
+const settings = {
+  targetMonth: defaultTargetMonth(),
+  target: 400000000,
+  cut: 22,
+  cycle22: true,
+  vatMode: 'inc',
+  disabledSrc: new Set()
+};
+try {
+  const vm = localStorage.getItem('bh_vatmode');
+  if(vm === 'ex' || vm === 'inc') settings.vatMode = vm;
+} catch(e){}
+
+/* ---- Phụ tùng dự tính ---- */
+state.prepared = [{ code: '', qty: '' }];
+const preparedKey = () => 'bh_prepared_' + settings.targetMonth;
+function loadPrepared(){
+  let l = null;
+  try { l = JSON.parse(localStorage.getItem(preparedKey()) || 'null'); } catch(e){}
+  state.prepared = Array.isArray(l) ? l.filter(r => r && typeof r === 'object') : [];
+  if(!state.prepared.length) state.prepared = [{ code: '', qty: '' }];
+}
+function savePrepared(){
+  try { localStorage.setItem(preparedKey(), JSON.stringify(state.prepared.filter(r => (r.code || '').trim() || (+r.qty || 0) > 0))); } catch(e){}
+}
+let prepTimer = null;
+window.prepSet = (i, k, v) => {
+  const row = state.prepared[i]; if(!row) return;
+  if(k === 'qty'){ const n = Math.floor(+String(v).replace(/[^\d]/g, '') || 0); row.qty = n > 0 ? n : ''; }
+  else row.code = String(v).trim().toUpperCase();
+  savePrepared();
+  const pid = (k === 'qty' ? 'pqty' : 'pcode') + i;
+  clearTimeout(prepTimer);
+  prepTimer = setTimeout(() => {
+    renderAll();
+    const el = document.querySelector('[data-pid="' + pid + '"]');
+    if(el){ el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch(e){} }
+  }, 350);
+};
+window.prepAdd = () => {
+  state.prepared.push({ code: '', qty: '' });
+  savePrepared();
+  renderAll();
+  setTimeout(() => { const els = document.querySelectorAll('[data-pid^="pcode"]'); if(els.length) els[els.length - 1].focus(); }, 60);
+};
+window.prepDel = i => {
+  state.prepared.splice(i, 1);
+  if(!state.prepared.length) state.prepared = [{ code: '', qty: '' }];
+  savePrepared();
+  renderAll();
+};
+
+
+/* ============================ Check Xe Hàng Ngày (ServiceOS) ============================ */
+// 12 Hạng mục lỗi chuẩn theo yêu cầu nghiệp vụ
+const ISSUE_CATEGORIES = [
+  { id: 'all', name: 'Tất cả hạng mục', icon: '📋' },
+  { id: 'no_fault', name: 'Không lỗi', icon: '✅', keywords: [] },
+  { id: 'esim', name: 'Lỗi Esim', icon: '📶', keywords: ['esim', 'e-sim', 'sim', 'mất sóng', 'mat song', '4g'] },
+  { id: 'pin', name: 'Lỗi PIN', icon: '🔋', keywords: ['pin', 'battery', 'bms', 'cell', 'lắp pin', 'tháo pin'] },
+  { id: 'motor', name: 'Lỗi động cơ', icon: '⚡', keywords: ['động cơ', 'dong co', 'motor', 'số máy', 'so may'] },
+  { id: 'charger', name: 'Lỗi sạc', icon: '🔌', keywords: ['sạc', 'sac', 'charger', 'củ sạc', 'bộ sạc'] },
+  { id: 'topcover', name: 'Lỗi nút TopCover', icon: '🔘', keywords: ['topcover', 'top cover', 'nút top', 'nut top'] },
+  { id: 'rear_shock', name: 'Lỗi giảm sóc sau', icon: '🛞', keywords: ['giảm sóc sau', 'giảm xóc sau', 'giam soc sau', 'giam xoc sau', 'phuộc sau', 'nhún sau'] },
+  { id: 'front_shock', name: 'Lỗi giảm xóc trước', icon: '🚲', keywords: ['giảm xóc trước', 'giảm sóc trước', 'giam xoc truoc', 'giam soc truoc', 'phuộc trước', 'nhún trước'] },
+  { id: 'hmi', name: 'Lỗi HMI', icon: '🖥️', keywords: ['hmi', 'màn hình', 'man hinh', 'đồng hồ', 'dong ho', 'display'] },
+  { id: 'mcu', name: 'Lỗi MCU', icon: '🎛️', keywords: ['mcu', 'điều khiển động cơ', 'dieu khien dong co', 'motor controller'] },
+  { id: 'scu', name: 'Lỗi SCU', icon: '🔑', keywords: ['scu', 'smartkey', 'smart key', 'chìa khóa', 'chia khoa', 'khóa thông minh'] },
+  { id: 'dcdc', name: 'Lỗi DC - DC', icon: '⚡', keywords: ['dc - dc', 'dc-dc', 'dcdc', 'hạ áp', 'ha ap', '12v'] },
+  { id: 'harness', name: 'Lỗi bộ dây điện', icon: '🧵', keywords: ['bộ dây điện', 'bo day dien', 'dây điện', 'day dien', 'dây sườn', 'giắc điện', 'chập điện', 'harness'] },
+  { id: 'other', name: 'Lỗi khác', icon: '🛠️', keywords: [] }
+];
+
+state.checkXe = {
+  orders: [],
+  viewMode: 'card',        // Mặc định 'card' (Thẻ ServiceOS thông minh)
+  filterCategory: 'all',
+  filterStatus: 'all',     // 'all', 'unchecked', 'recheck', 'checked', 'normal'
+  filterScope: 'all',      // Mặc định hiển thị đầy đủ xe trong xưởng
+  filterDate: 'all',       // 'all', 'today', 'yesterday', 'last7', or 'YYYY-MM-DD'
+  filterTech: '',
+  filterVehicle: '',       // Lọc theo Dòng xe
+  filterHasTable: 'all',   // 'all', 'yes', 'no' (Bảng cập nhật phía dưới)
+  filterHasNote: 'all',    // 'all', 'yes', 'no' (Ghi chú KTV)
+  searchPlate: '',         // Lọc riêng Biển số / Mã WO
+  searchQuery: '',         // Tìm kiếm tự do
+  sortBy: 'stt',           // Cột sắp xếp: 'stt', 'plate', 'vehicle', 'tech', 'category', 'bang', 'note', 'date', 'status'
+  sortDir: 'asc'           // 'asc' hoặc 'desc'
+};
+
+// 4 QUY TẮC NGHIỆP VỤ XÁC ĐỊNH TRẠNG THÁI CHECK:
+// - Quy tắc 1: Nếu có hạng mục lỗi nhưng không có ghi chú KTV hay bảng cập nhật phía dưới -> Chưa check (UNCHECKED)
+// - Quy tắc 2: Nếu không có hạng mục lỗi và không có ghi chú KTV mà có bảng cập nhật bên dưới -> Đã check (CHECKED)
+// - Quy tắc 3: Nếu có hạng mục lỗi và ghi chú KTV (kèm bảng cập nhật) -> Đã check (CHECKED)
+// - Quy tắc 4: Nếu có hạng mục lỗi nhưng không có bảng cập nhật bên dưới và đã có ghi chú KTV -> Cần check lại (RECHECK)
+function evaluateCheckStatus(hasLoi, hasKtvNote, hasBangCapNhat){
+  // QUY TẮC MỚI THEO YÊU CẦU NGƯỜI DÙNG:
+  // "xe không lỗi thì tính là trạng thái check là xe không lỗi"
+  if(!hasLoi){
+    return { 
+      code: 'no_fault', 

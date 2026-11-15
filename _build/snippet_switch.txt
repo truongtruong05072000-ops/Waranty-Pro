@@ -1,0 +1,60 @@
+  const btn = $('#bookmarkletLink');
+  if(btn) btn.href = 'javascript:void(0);';
+}
+/* ============================ Navigation ============================ */
+window.switchTab = function(tabId){
+  state.activeTab = tabId;
+  $$('.nav-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tabId);
+  });
+  $$('.tab-pane').forEach(pane => {
+    pane.classList.toggle('active', pane.id === 'pane_' + tabId);
+  });
+  if(tabId === 'checkxe'){
+    renderCheckXe();
+  }
+  if(typeof window.scrollTo === 'function') try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch(e){}
+};
+
+window.setVatMode = function(mode){
+  if(mode !== 'inc' && mode !== 'ex') return;
+  settings.vatMode = mode;
+  try { localStorage.setItem('bh_vatmode', mode); } catch(e){}
+  
+  // update UI toggles
+  const btnInc = $('#btnVatInc'), btnEx = $('#btnVatEx'), sel = $('#vatMode');
+  if(btnInc) btnInc.classList.toggle('active', mode === 'inc');
+  if(btnEx) btnEx.classList.toggle('active', mode === 'ex');
+  if(sel) sel.value = mode;
+  
+  renderAll();
+};
+
+/* ============================ File handling ============================ */
+async function handleFiles(fileList){
+  for(const file of fileList){
+    const src = { id: 'src' + Date.now() + Math.random().toString(36).slice(2, 7), name: file.name, status: 'Đang đọc…', rows: 0, range: '', format: 0, recs: [], warn: [] };
+    state.sources.push(src); renderSources();
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+      const recs = []; let sawF1 = false;
+      for(const sn of wb.SheetNames){
+        const rows = sheetRows(wb.Sheets[sn]);
+        const f1 = parseFile1Sheet(rows, src);
+        if(f1 === null) continue;
+        if(f1.length) sawF1 = true;
+        recs.push(...f1);
+      }
+      const f2 = parseFile2Workbook(wb, src);
+      if(f2) recs.push(...f2);
+      const sOrders = parseServiceOsWorkbook(wb);
+      if(sOrders && sOrders.length > 0){
+        state.checkXe.orders = sOrders;
+        saveCheckXeOrders();
+        renderCheckXe();
+        src.status = 'OK · Nhận diện ' + sOrders.length + ' lệnh sửa chữa ServiceOS (Đã nạp vào mục Check lỗi)';
+        src.rows = sOrders.length;
+        src.format = 4;
+      } else if(!recs.length){
+        src.status = 'Lỗi: không nhận diện được dữ liệu bảo hành trong file này'; src.err = true;

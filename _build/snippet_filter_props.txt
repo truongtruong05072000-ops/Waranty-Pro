@@ -1,0 +1,60 @@
+              <td class="num">${ceilInt(C.parts3.reduce((s, a) => s + a.qty, 0))}</td>
+              <td class="num">${fmtN(C.parts3.reduce((s, a) => s + a.qty, 0) / 3, 1)}</td>
+              <td class="num">${fmtVND(C.parts3Money)}</td>
+              <td class="num">100%</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:12px;padding:12px 14px;background:var(--primary-soft);border-radius:var(--radius-md);font-size:12.5px;color:#1e40af">
+        💡 Cơ cấu 3 tháng: Tiền phụ tùng = <b>${fmtVND(C.parts3Money)}</b> (${fmtN(C.parts3Money / C.total3 * 100, 0)}% doanh thu); Tiền công = <b>${fmtVND(C.labor3)}</b> (${fmtN(100 - C.parts3Money / C.total3 * 100, 0)}%). Tổng doanh thu chốt 3 tháng = <b>${fmtVND(C.total3)}</b>.
+      </div>
+    </div>`;
+
+  /* ==================== 4. CLAIMS PANE ==================== */
+  const f = state.filters;
+  let propRows = C.recs.filter(r => r.cm || r.kind !== 'confirmed');
+  if(f.cm) propRows = propRows.filter(r => r.cm === f.cm);
+  if(f.kind) propRows = propRows.filter(r => r.kind === f.kind);
+  if(f.custGroup) {
+    propRows = propRows.filter(r => (r.customerGroup && r.customerGroup.id === f.custGroup));
+  }
+  if(f.returnStatus) {
+    if(f.returnStatus === 'all_returned') propRows = propRows.filter(r => r.isReturned);
+    else if(f.returnStatus === 'level_1') propRows = propRows.filter(r => r.isReturnLevel1);
+    else if(f.returnStatus === 'level_2') propRows = propRows.filter(r => r.isReturnLevel2);
+  }
+  if(f.q){
+    const q = f.q.toLowerCase();
+    propRows = propRows.filter(r => (r.id + ' ' + r.vin + ' ' + r.wo + ' ' + (r.customerName || '') + ' ' + (r.customerCompanyName || '') + ' ' + r.parts.map(p => p.code + ' ' + p.name).join(' ')).toLowerCase().includes(q));
+  }
+  propRows.sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0));
+
+  const propHtml = propRows.map(r => {
+    const pTxt = r.parts.length ? r.parts.map(p => `${ceilInt(p.qty)}× ${esc(p.code)}`).join(' + ') : '<span style="color:var(--text-light)">—</span>';
+    return `
+      <tr>
+        <td class="l">
+          <b>${esc(r.id)}</b>
+          ${r.customerGroup ? `<span style="font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700;margin-left:4px;background:${r.customerGroup.color}22;color:${r.customerGroup.color};border:1px solid ${r.customerGroup.color}50">${r.customerGroup.tag}</span>` : ''}
+          ${r.isReturned ? `<span style="font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700;margin-left:4px;background:rgba(239,68,68,0.2);color:#fca5a5;border:1px solid rgba(239,68,68,0.4)" title="${esc(r.rejectReason || 'Bị trả về')}">${esc(r.returnLevelLabel || 'Bị trả về')}</span>` : ''}
+        </td>
+        <td class="l" style="font-size:11.5px;color:var(--text-muted)">${esc(r.srcName)}</td>
+        <td class="l">${esc(r.wo) || '—'}</td>
+        <td class="l" style="font-family:monospace;font-size:12px">${esc(r.vin) || '—'}</td>
+        <td class="num">${fmtDate(r.date) || '—'}</td>
+        <td class="num"><b>${r.cm ? monthLabel(r.cm) : '—'}</b></td>
+        <td class="l"><span class="status-pill ${r.badge}">${esc(r.kindLabel)}</span></td>
+        <td class="part-name-cell">${pTxt}</td>
+        <td class="num">${fmtVND(r.parts.reduce((s, p) => s + p.money, 0))}</td>
+        <td class="num">${fmtVND(r.labor)}</td>
+        <td class="num"><b style="color:var(--primary)">${fmtVND(r.total)}</b></td>
+      </tr>`;
+  }).join('');
+
+  const cmOpts = [...new Set(C.recs.map(r => r.cm).filter(Boolean))].sort().reverse().map(m => `<option value="${m}" ${f.cm === m ? 'selected' : ''}>${monthLabel(m)}</option>`).join('');
+
+  $('#claimsContent').innerHTML = `
+    <div class="card">

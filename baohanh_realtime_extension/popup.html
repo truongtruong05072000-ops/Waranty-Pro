@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Bảo Hành PRO — Realtime Sync</title>
+  <style>
+    body {
+      width: 320px;
+      margin: 0;
+      padding: 16px;
+      background: #0f172a;
+      color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+    }
+    .logo {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, #0284c7, #38bdf8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: #fff;
+    }
+    .title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .subtitle {
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    .status-card {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .status-row:last-child {
+      margin-bottom: 0;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge.ok {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .btn {
+      width: 100%;
+      background: linear-gradient(135deg, #0284c7, #0ea5e9);
+      color: #fff;
+      border: none;
+      padding: 10px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 12.5px;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    .btn:hover {
+      opacity: 0.95;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">NT</div>
+    <div>
+      <div class="title">Bảo Hành PRO — Sync</div>
+      <div class="subtitle">Đồng bộ tự động 100% (Zero-click)</div>
+    </div>
+  </div>
+
+  <div class="status-card">
+    <div class="status-row">
+      <span>🚗 ServiceOS:</span>
+      <span class="badge ok" id="stServiceOs">🟢 Đang theo dõi</span>
+    </div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:4px" id="infoServiceOs">
+      Tự động kéo xe khi có thay đổi
+    </div>
+  </div>
+
+  <div class="status-card">
+    <div class="status-row">
+      <span>💼 Dealer Portal:</span>
+      <span class="badge ok" id="stDealer">🟢 Đang theo dõi</span>
+    </div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:4px" id="infoDealer">
+      Tự động kéo ĐXBH khi có thay đổi
+    </div>
+  </div>
+
+  <button class="btn" id="btnOpenApp">⚡ Mở Web Quản Trị Bảo Hành</button>
+
+  <script src="popup.js"></script>
+</body>
+</html>

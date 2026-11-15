@@ -1,0 +1,12 @@
+v15=True
+doneAgg=7
+histDaily=11
+curDaily=11
+qBase=9
+doneQ=9
+planLaborRest=8
+propsNeedBase=5
+css_typo=False
+bestRev3_decl=1
+placeholder=0
+chars=778892

@@ -1,0 +1,12 @@
+{
+  "serviceos": {
+    "cookie": "sid=WwPsqumoIvM9xrGBCO_AoYxAPZHcV019kCC22bJtTxo",
+    "lastLogin": 1794734416172
+  },
+  "dealerPortal": {
+    "accessToken": "",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxNWIxNjE0Zi00OGYxLTRhZDctYTRlNi0zOGE3MDdkZWMzMDYiLCJtYXJrZXQiOiJWTiIsImlhdCI6MTc5NDE0NDU2MiwiZXhwIjoxNzk2NzM2NTYyfQ.FwHC_pXAI425RdU_SRTVZZwe3yLt988ncdmXYWjXTsc",
+    "expiresAt": 1794148681146,
+    "user": null
+  }
+}

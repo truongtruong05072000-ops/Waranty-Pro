@@ -1,0 +1,110 @@
+    window.parseDealerPortalJson(preloaded, 'VinFast Dealer Portal (100 đề xuất đã duyệt)', false);
+  }
+}
+
+window.parseDealerPortalJson = function(jsonData, srcName = 'Dealer Portal API (100 đề xuất)', triggerRender = true){
+  let claims = [];
+  if (typeof jsonData === 'string') {
+    try { jsonData = JSON.parse(jsonData); } catch(e){ alert('Lỗi định dạng JSON: ' + e.message); return 0; }
+  }
+  if (Array.isArray(jsonData)) {
+    claims = jsonData;
+  } else if (jsonData && Array.isArray(jsonData.data)) {
+    claims = jsonData.data;
+  } else if (jsonData && Array.isArray(jsonData.rows)) {
+    claims = jsonData.rows;
+  } else if (jsonData && Array.isArray(jsonData.items)) {
+    claims = jsonData.items;
+  }
+  if (!claims.length) {
+    if (triggerRender) alert('Không tìm thấy danh sách đề xuất trong dữ liệu!');
+    return 0;
+  }
+
+  // Cập nhật Map tra cứu
+  if (!window.DEALER_CLAIMS_MAP) window.DEALER_CLAIMS_MAP = new Map();
+  claims.forEach(c => {
+    if (!c) return;
+    if (c.vin) {
+      const v = String(c.vin).trim().toUpperCase();
+      window.DEALER_CLAIMS_MAP.set(v, c);
+      if (v.length >= 6) window.DEALER_CLAIMS_MAP.set(v.slice(-6), c);
+    }
+    if (c.workOrderNumber) {
+      window.DEALER_CLAIMS_MAP.set(String(c.workOrderNumber).trim().toUpperCase(), c);
+    }
+    if (c.warrantyClaimNumber) {
+      window.DEALER_CLAIMS_MAP.set(String(c.warrantyClaimNumber).trim().toUpperCase(), c);
+    }
+  });
+
+  // Lưu trữ cục bộ
+  try {
+    localStorage.setItem('bh_dealer_claims', JSON.stringify(claims));
+  } catch(e){}
+
+  // Tạo Nguồn dữ liệu Định dạng 2 (Format 2: Dealer Portal)
+  const src = {
+    id: 'src_dp_' + Date.now(),
+    name: srcName,
+    status: 'OK',
+    rows: claims.length,
+    range: '',
+    format: 2,
+    recs: [],
+    warn: []
+  };
+
+  const dates = [];
+  const recs = claims.map(c => {
+    const rec = newRecord();
+    rec.id = String(c.warrantyClaimNumber || c.number || c.claim_code || c.id || '').trim();
+    rec.wo = String(c.workOrderNumber || c.work_order || '').trim();
+    rec.vin = String(c.vin || '').trim();
+    rec.vehicle = String(c.model || c.vehicle || '').trim();
+    rec.format = 2;
+    rec.srcId = src.id;
+    rec.srcName = src.name;
+
+    const rawSt = String(c.status || '').toUpperCase();
+    const normSt = norm(rawSt);
+    if (rawSt === 'APPROVED' || normSt.includes('da phe duyet') || normSt.includes('da duyet') || normSt === 'hoan thanh' || rawSt.includes('PAID')) {
+      rec.status = 'Đã phê duyệt';
+    } else if (rawSt.includes('PENDING_LEVEL_2') || rawSt.includes('WAITING_LEVEL_2') || normSt.includes('cap 2') || normSt.includes('level 2')) {
+      rec.status = 'Chờ duyệt cấp 2';
+    } else if (rawSt.includes('PENDING_LEVEL_1') || rawSt.includes('WAITING_LEVEL_1') || normSt.includes('cap 1') || normSt.includes('level 1')) {
+      rec.status = 'Chờ duyệt cấp 1';
+    } else if (rawSt.includes('PENDING') || rawSt.includes('WAITING') || normSt.includes('cho duyet') || rawSt.includes('SUBMIT')) {
+      rec.status = 'Chờ duyệt';
+    } else if (rawSt.includes('CANCEL') || rawSt.includes('REJECT') || normSt.includes('tu choi') || normSt.includes('huy')) {
+      rec.status = 'Từ chối / Hủy';
+    } else {
+      rec.status = c.status || 'Chờ duyệt';
+    }
+
+    const dVal = c.approvedDate || c.approved_at || c.createdAt || c.created_at || c.submitted_at;
+    rec.date = parseDateVal(dVal);
+    if (rec.date) dates.push(rec.date);
+
+    const inc = Number(c.totalRequestedAmountInclTax || c.amount || 0) || 0;
+    rec.totalInc = inc;
+    rec.totalEx = Math.round(inc / 1.1);
+    rec.total = inc;
+
+    const cust = c.customer || {};
+    rec.customerName = String(cust.customerName || c.customerName || '').trim();
+    rec.customerCompanyName = String(cust.customerCompanyName || c.customerCompanyName || '').trim();
+    rec.customerGroup = getCustomerGroup(rec.customerName, rec.customerCompanyName);
+
+    const retStat = evaluateClaimReturnStatus(
+      c,
+      c.status,
+      c.approvalSequence,
+      c.reason,
+      c.returnLevel1Count,
+      c.returnLevel2Count
+    );
+    rec.isReturnLevel1 = retStat.isReturnLevel1;
+    rec.isReturnLevel2 = retStat.isReturnLevel2;
+    rec.isReturned = retStat.isReturned;
+    rec.returnLevelLabel = retStat.returnLevelLabel;

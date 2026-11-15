@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Bảo Hành PRO - Đồng bộ ServiceOS",
+  "version": "2.0",
+  "description": "Tự động thêm nút lấy xe từ ServiceOS sang công cụ Bảo Hành PRO",
+  "permissions": ["activeTab", "clipboardWrite"],
+  "host_permissions": ["https://att-serviceos.anthinhtech.vn/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://att-serviceos.anthinhtech.vn/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+  // Phân loại thanh toán (Phân loại TT)
+  const phanLoaiTtRaw = String(
+    d.phanLoaiTt || d.phan_loai_tt || d.paymentType || d.payment_type || d.billing_type || d.order_type || d.loai_sua_chua || ''
+  ).trim();
+
+  const isWarrantyPayment = Boolean(
+    norm(phanLoaiTtRaw).includes('bao hanh') || 
+    norm(phanLoaiTtRaw) === 'bh' || 
+    norm(phanLoaiTtRaw).includes('warranty') || 
+    hasBangCapNhat || 
+    Boolean(bhCode && bhCode !== '—') ||
+    Boolean(warrantyStatus && warrantyStatus !== '—')
+  );
+  const phanLoaiTt = phanLoaiTtRaw || (isWarrantyPayment ? 'Bảo hành' : 'Khách trả');
+  const isSettled = isSettledOrHigher(status, d);
+  // Lệnh chưa làm ĐXBH: Phân loại TT là bảo hành VÀ lệnh ở mức quyết toán trở lên VÀ chưa có mã ĐX (WC-...)
+  const isUnsubmittedWarranty = isWarrantyPayment && isSettled && (!claimCode || claimCode === '—' || !claimCode.startsWith('WC-'));
+
+  // Nhóm khách hàng (GSM, Bship, Khách lẻ, Doanh nghiệp khác)
+  const matchedCustName = (matchedClaim && matchedClaim.customer && matchedClaim.customer.customerName) || '';
+  const matchedCompName = (matchedClaim && matchedClaim.customer && matchedClaim.customer.customerCompanyName) || '';
+  const custGroup = getCustomerGroup(customer || matchedCustName, d.customerCompanyName || matchedCompName);
+
+  // Chuẩn hóa ngày nhận xe
+  const rawDate = d.dateStr || d.received_at || d.created_at || new Date().toISOString().slice(0, 10);
+  const isoDate = formatIsoDate(rawDate) || new Date().toISOString().slice(0, 10);
+  const dispDate = formatDisplayDate(isoDate);
+
+  const order = {
+    customerCompanyName: d.customerCompanyName || matchedCompName,
+    customerGroup: custGroup,
+    phanLoaiTt: phanLoaiTt,
+    isWarrantyPayment: isWarrantyPayment,
+    isSettled: isSettled,
+    isUnsubmittedWarranty: isUnsubmittedWarranty,

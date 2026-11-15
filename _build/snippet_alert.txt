@@ -1,0 +1,60 @@
+          <b>${monthLabel(m)}</b> ${isT ? '<span class="tag target-pill"><svg class="sc-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg> Mục tiêu</span>' : ''}
+          <div style="font-size:11.5px;color:var(--text-muted);font-weight:normal">${cycleRangeText(m, cutTxt)}</div>
+        </td>
+        <td class="num">${o.cnt || '0'}</td>
+        <td class="num"><b>${fmtVND(o.conf)}</b></td>
+        <td class="num" style="color:#d97706">${o.pCnt ? `${o.pCnt} ĐX · ` : ''}${fmtVND(o.pipe)}</td>
+        <td class="num"><b style="color:var(--primary)">${fmtVND(exp)}</b></td>
+        <td class="num" style="color:${d >= 0 ? 'var(--emerald)' : 'var(--rose)'}">${d >= 0 ? '+' : ''}${fmtVND(d)}</td>
+        <td class="num">${settings.target ? fmtN(exp / settings.target * 100, 0) + '%' : ''}</td>
+      </tr>`;
+  }).join('');
+
+  const chart = svgChart(chartMonths.map(m => ({ m, conf: C.months.get(m)?.conf || 0, pipe: (C.months.get(m)?.pipe || 0) })), settings.target);
+
+  const unsubmittedAlertHtml = (C.unsubmittedWarrantyOrders && C.unsubmittedWarrantyOrders.length > 0) ? `
+    <div style="background:linear-gradient(135deg, rgba(239,68,68,0.18), rgba(15,23,42,0.9));border:1.5px solid #ef4444;border-radius:12px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;gap:16px;box-shadow:0 0 20px rgba(239,68,68,0.25);flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="font-size:26px">🚨</div>
+        <div>
+          <div style="font-size:14.5px;font-weight:800;color:#fca5a5;margin-bottom:3px">
+            CẢNH BÁO: Phát hiện ${C.unsubmittedWarrantyOrders.length} Lệnh sửa chữa Bảo hành CHƯA LÀM ĐỀ XUẤT!
+          </div>
+          <div style="font-size:12px;color:#cbd5e1;line-height:1.4">
+            Các xe này có <b>Phân loại TT là Bảo hành</b> hoặc đã thay linh kiện bảo hành nhưng <b>chưa nộp đề xuất (chưa có mã WC)</b> trên Dealer Portal.
+          </div>
+        </div>
+      </div>
+      <button class="btn primary" style="background:#dc2626;border-color:#ef4444;color:#fff;font-weight:700;padding:7px 15px;font-size:12px;box-shadow:0 0 12px rgba(239,68,68,0.4)" onclick="showUnsubmittedWarrantyOrders()">
+        🔍 Xem ngay ${C.unsubmittedWarrantyOrders.length} xe cần tạo ĐX
+      </button>
+    </div>` : '';
+
+  const qualityAndCustomerCardsHtml = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(460px, 1fr));gap:18px;margin-bottom:18px">
+      <!-- Card Sơ đồ Thước đo Tỷ lệ trả về (Chuẩn <= 1%) -->
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header">
+          <div>
+            <div class="card-title">🛡️ Tỷ lệ trả về đề xuất bảo hành (Cấp 1 & Cấp 2)</div>
+            <div class="card-subtitle">Quy chuẩn VinFast: Mức trần cho phép <b>≤ 1.0%</b> · Kiểm soát chất lượng hồ sơ</div>
+          </div>
+          <button class="btn secondary" style="font-size:11.5px;padding:4px 9px" onclick="viewReturnedClaims()">
+            📋 Xem ĐX bị trả về
+          </button>
+        </div>
+        <div style="padding:14px 18px">
+          ${svgReturnRateGauge(C.returnMetrics.returnRate, C.returnMetrics.isReturnRateOk, C.returnMetrics.returnL1Count, C.returnMetrics.returnL2Count, C.returnMetrics.totalClaimsCount)}
+        </div>
+      </div>
+
+      <!-- Card Cơ cấu Nhóm Khách Hàng (GSM, Bship, Khách lẻ) -->
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header">
+          <div>
+            <div class="card-title">👥 Cơ cấu doanh thu theo Nhóm Khách Hàng</div>
+            <div class="card-subtitle">Phân bổ: <b>GSM (Xanh SM)</b> · <b>Bship</b> · <b>Khách lẻ</b> · Doanh nghiệp khác</div>
+          </div>
+        </div>
+        <div style="padding:14px 18px">
+          ${renderCustomerBreakdownHtml(C.customerBreakdown)}

@@ -1,0 +1,60 @@
+      c.status,
+      c.approvalSequence,
+      c.reason,
+      c.returnLevel1Count,
+      c.returnLevel2Count
+    );
+    rec.isReturnLevel1 = retStat.isReturnLevel1;
+    rec.isReturnLevel2 = retStat.isReturnLevel2;
+    rec.isReturned = retStat.isReturned;
+    rec.returnLevelLabel = retStat.returnLevelLabel;
+    rec.rejectReason = String(c.reason || '').trim();
+
+    rec.parts = [{
+      code: c.warrantyType || 'STANDARD',
+      name: (c.customer && c.customer.customerName) ? c.customer.customerName : 'Bảo hành xe điện',
+      qty: 1,
+      priceInc: inc,
+      priceEx: rec.totalEx,
+      amountInc: inc,
+      amountEx: rec.totalEx
+    }];
+
+    return rec;
+  });
+
+  src.recs = recs;
+  if (dates.length) {
+    const sorted = dates.slice().sort((a,b) => a - b);
+    src.range = formatDisplayDate(sorted[0]) + ' - ' + formatDisplayDate(sorted[sorted.length - 1]);
+  }
+
+  state.sources = state.sources.filter(s => s.name !== srcName);
+  state.sources.push(src);
+
+  // Tự động cập nhật lại danh sách xe trong xưởng với Lệnh BH & ĐXBH vừa nạp
+  rebuildCheckXeOrders();
+
+  if (triggerRender) {
+    saveSources();
+    renderSources();
+    renderAll();
+    if (typeof window.switchTab === 'function') window.switchTab('overview');
+    alert(`🎉 ĐÃ NẠP THÀNH CÔNG ${claims.length} ĐỀ XUẤT DEALER PORTAL VÀO DOANH THU & CHECK LỖI XE!`);
+  }
+
+  return claims.length;
+};
+
+// Hàm chuẩn hóa lại toàn bộ xe trong Check lỗi xe
+function rebuildCheckXeOrders(){
+  try {
+    let rawList = [];
+    const raw = localStorage.getItem('bh_checkxe_orders') || localStorage.getItem('serviceos_cached_orders');
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (Array.isArray(p)) rawList = p;
+    }
+    if (!rawList.length && typeof SERVICEOS_PRELOAD_ORDERS !== 'undefined') {
+      rawList = SERVICEOS_PRELOAD_ORDERS;
+    }

@@ -1,0 +1,40 @@
+function loadCheckXeOrders(){
+  initDealerClaimsMap();
+  try {
+    const raw = localStorage.getItem('bh_checkxe_orders');
+    if(raw) {
+      const data = JSON.parse(raw);
+      if(Array.isArray(data) && data.length > 0){
+        // Filter out corrupted rows without plate
+        const valid = data.filter(d => {
+          const p = d.plate || (d.work_order && d.work_order.plate);
+          return p && p !== '—' && p !== '-';
+        });
+        if (valid.length > 0) {
+          state.checkXe.orders = valid.map((d, i) => normalizeOrder(d, i));
+          return;
+        }
+      }
+    }
+  } catch(e){}
+  
+  // Default to 50 real cars from ServiceOS if storage is empty or invalid
+  if (Array.isArray(SERVICEOS_PRELOAD_ORDERS) && SERVICEOS_PRELOAD_ORDERS.length > 0) {
+    state.checkXe.orders = SERVICEOS_PRELOAD_ORDERS.map((d, i) => normalizeOrder(d, i));
+  }
+}
+
+window.resetToRealServiceOsCars = function() {
+  if (Array.isArray(SERVICEOS_PRELOAD_ORDERS) && SERVICEOS_PRELOAD_ORDERS.length > 0) {
+    state.checkXe.orders = SERVICEOS_PRELOAD_ORDERS.map((d, i) => normalizeOrder(d, i));
+    saveCheckXeOrders();
+    renderCheckXe();
+    alert('✅ ĐÃ NẠP THÀNH CÔNG 50 XE THỰC TẾ TỪ SERVICEOS VÀO BẢNG!');
+  }
+};
+
+function saveCheckXeOrders(){
+  try {
+    localStorage.setItem('bh_checkxe_orders', JSON.stringify(state.checkXe.orders));
+  } catch(e){}
+}

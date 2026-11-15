@@ -1,0 +1,24 @@
+{
+  "name": "baohanh-pro-realtime-server",
+  "version": "3.0.0",
+  "description": "Hệ thống Real-time Sync Backend 24/7 tự động đồng bộ ServiceOS & VinFast Dealer Portal (CarOn Thới An N54511)",
+  "main": "backend/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node --watch backend/server.js",
+    "build": "node _build/build.js"
+  },
+  "keywords": [
+    "realtime",
+    "sync",
+    "vinfast",
+    "serviceos",
+    "dealer-portal"
+  ],
+  "author": "Trương Nguyễn Như Trường",
+  "license": "ISC",
+  "dependencies": {
+    "ws": "^8.22.1"
+  }
+}

@@ -1,0 +1,116 @@
+function parseFile1Sheet(rows, src){
+  const hi = findHeaderRow(rows);
+  if(hi < 0) return [];
+  const H = rows[hi], map = buildColMap(H);
+  const idCol = map['so yeu cau bao hanh'] ?? map['so de xuat bao hanh'];
+  if(idCol == null) return null;
+  const isPortal = map['so de xuat bao hanh'] != null && map['so yeu cau bao hanh'] == null;
+  const recs = [];
+  for(let r = hi + 1; r < rows.length; r++){
+    const row = rows[r]; if(!row || row.length === 0) continue;
+    const idRaw = row[idCol];
+    if(idRaw == null || String(idRaw).trim() === '') continue;
+    const rec = newRecord();
+    rec.id = String(idRaw).trim(); rec.format = isPortal ? 2 : 1; rec.srcId = src.id; rec.srcName = src.name;
+    rec.status = String(pickCol(map, row, ['trang thai']) ?? '').trim();
+    rec.date = parseDateVal(pickCol(map, row, ['ngay phe duyet 2', 'ngay phe duyet cap 2', 'ngay phe duyet cap 1', 'ngay phe duyet']))
+      || parseDateVal(pickCol(map, row, ['ngay gui de xuat bao hanh', 'ngay gui']))
+      || parseDateVal(pickCol(map, row, ['ngay tao']))
+      || parseDateVal(pickCol(map, row, ['ngay chinh sua', 'ngay dxbh']))
+      || parseDateVal(pickCol(map, row, ['ngay mo lsc', 'ngay mo lenh sua chua', 'ngay tao lenh sua chua']));
+    rec.wo = String(pickCol(map, row, ['lenh sua chua']) ?? '').trim();
+    rec.vin = String(pickCol(map, row, ['so khung', 'vin']) ?? '').trim();
+    rec.vehicle = String(pickCol(map, row, ['ten xe', 'model xe']) ?? '').trim();
+    rec.customerName = String(pickCol(map, row, ['ten khach hang', 'khach hang']) || '').trim();
+    rec.customerCompanyName = String(pickCol(map, row, ['ten cong ty khach hang', 'cong ty']) || '').trim();
+    rec.customerGroup = getCustomerGroup(rec.customerName, rec.customerCompanyName);
+
+    const f1RawSt = String(pickCol(map, row, ['trang thai']) ?? '').trim();
+    const f1Seq = pickCol(map, row, ['cap phe duyet']);
+    const f1Reason = String(pickCol(map, row, ['ly do tra ve / tu choi', 'ly do tu choi', 'ly do tra ve', 'ly do huy']) || '').trim();
+    const f1L1 = pickCol(map, row, ['so lan tra ve cap 1', 'tra ve cap 1']);
+    const f1L2 = pickCol(map, row, ['so lan tra ve cap 2', 'tra ve cap 2', 'so lan tu choi cap 2']);
+    const f1RetStat = evaluateClaimReturnStatus(row, f1RawSt, f1Seq, f1Reason, f1L1, f1L2);
+    rec.isReturnLevel1 = f1RetStat.isReturnLevel1;
+    rec.isReturnLevel2 = f1RetStat.isReturnLevel2;
+    rec.isReturned = f1RetStat.isReturned;
+    rec.returnLevelLabel = f1RetStat.returnLevelLabel;
+    rec.rejectReason = f1Reason;
+    const outsource = parseNum(pickCol(map, row, ['total outsource amount']));
+    rec.outsource = outsource;
+    const pMoneyInc = parseNum(pickCol(map, row, ['so tien bao hanh phu tung', 'tien vat tu yeu cau (sau vat)']));
+    const pMoneyEx = parseNum(pickCol(map, row, ['tien vat tu yeu cau (truoc vat)'])) || pMoneyInc;
+    const laborInc = parseNum(pickCol(map, row, ['tien cong yeu cau (sau vat)', 'tien cong yeu cau']));
+    const laborEx = parseNum(pickCol(map, row, ['tien cong yeu cau (truoc vat)'])) || laborInc;
+    const totalInc = parseNum(pickCol(map, row, ['tong tien yeu cau bao hanh', 'tong tien yeu cau (sau vat)'])) || (pMoneyInc + laborInc + outsource);
+    const totalEx = parseNum(pickCol(map, row, ['tong tien yeu cau (truoc vat)'])) || (pMoneyEx + laborEx + outsource);
+
+    rec.pMoneyInc = pMoneyInc; rec.pMoneyEx = pMoneyEx;
+    rec.laborInc = laborInc; rec.laborEx = laborEx;
+    rec.totalInc = totalInc; rec.totalEx = totalEx;
+    rec.labor = (settings.vatMode === 'ex') ? laborEx : laborInc;
+    rec.total = (settings.vatMode === 'ex') ? totalEx : totalInc;
+
+    const rawCode = String(pickCol(map, row, ['ma phu tung chinh', 'phu tung chinh', 'ma phu tung', 'ma vat tu chinh']) ?? '').trim();
+    const pName = String(pickCol(map, row, ['ten phu tung chinh', 'ten vat tu chinh']) ?? '').trim();
+    const snNew = pickCol(map, row, ['so serial vat tu moi', 'serial phu tung moi']);
+    const snOld = pickCol(map, row, ['so serial vat tu cu', 'serial phu tung cu']);
+    const pMoneyVal = (settings.vatMode === 'ex') ? pMoneyEx : pMoneyInc;
+    const code = rawCode || inferPartCode(pName, snNew, snOld, pMoneyVal);
+    if(code || pName || pMoneyVal) rec.parts = [{ code: code || pName || '(KHÔNG MÃ)', name: pName, qty: 1, moneyInc: pMoneyInc, moneyEx: pMoneyEx, money: pMoneyVal, inferred: !rawCode }];
+    recs.push(rec);
+  }
+  return recs;
+}
+
+function parseFile2Workbook(wb, src){
+  const nameOf = wb.SheetNames.map(n => norm(n));
+  const idx = pred => wb.SheetNames[nameOf.findIndex(n => pred(n))];
+  const dxName = idx(n => n.startsWith('de xuat bao hanh'));
+  if(!dxName) return null;
+  const ptName = idx(n => n.startsWith('phu tung theo dxbh'));
+  const ncName = idx(n => n.startsWith('nhan cong theo dxbh'));
+  const ctName = idx(n => n.startsWith('chi tiet dxbh'));
+  const proposals = new Map();
+  const dxRows = sheetRows(wb.Sheets[dxName]);
+  const hi = findHeaderRow(dxRows), map = buildColMap(dxRows[hi] || []);
+  for(let r = hi + 1; r < dxRows.length; r++){
+    const row = dxRows[r]; if(!row) continue;
+    const idRaw = pickCol(map, row, ['de xuat bao hanh']);
+    if(idRaw == null || String(idRaw).trim() === '') continue;
+    const rec = newRecord();
+    rec.id = String(idRaw).trim(); rec.format = 2; rec.srcId = src.id; rec.srcName = src.name;
+    rec.status = String(pickCol(map, row, ['trang thai']) ?? '').trim();
+    rec.date = parseDateVal(pickCol(map, row, ['ngay phe duyet'])) || parseDateVal(pickCol(map, row, ['ngay tao'])) || parseDateVal(pickCol(map, row, ['ngay chinh sua']));
+    rec.wo = String(pickCol(map, row, ['ma lsc']) ?? '').trim();
+    rec.vin = String(pickCol(map, row, ['vin']) ?? '').trim();
+    rec.total = parseNum(pickCol(map, row, ['so tien phe duyet', 'tong tien phe duyet']));
+    proposals.set(rec.id, rec);
+  }
+  if(ctName){
+    const ctRows = sheetRows(wb.Sheets[ctName]), hi2 = findHeaderRow(ctRows), m2 = buildColMap(ctRows[hi2] || []);
+    for(let r = hi2 + 1; r < ctRows.length; r++){
+      const row = ctRows[r]; if(!row) continue;
+      const id = String(pickCol(m2, row, ['de xuat bao hanh']) ?? '').trim();
+      const rec = proposals.get(id);
+      if(rec && !rec.total) rec.total = parseNum(pickCol(m2, row, ['tong (gom thue)', 'tong gom thue']));
+    }
+  }
+  if(ptName){
+    const ptRows = sheetRows(wb.Sheets[ptName]), hi2 = findHeaderRow(ptRows), m2 = buildColMap(ptRows[hi2] || []);
+    for(let r = hi2 + 1; r < ptRows.length; r++){
+      const row = ptRows[r]; if(!row) continue;
+      const id = String(pickCol(m2, row, ['de xuat bao hanh']) ?? '').trim();
+      const rec = proposals.get(id); if(!rec) continue;
+      const code = String(pickCol(m2, row, ['ma phu tung']) ?? '').trim();
+      const money = parseNum(pickCol(m2, row, ['tien gom thue'])) || parseNum(pickCol(m2, row, ['thanh tien sau km']));
+      if(!code && !money) continue;
+      rec.parts.push({ code: code || '(KHÔNG MÃ)', name: String(pickCol(m2, row, ['ten phu tung']) ?? '').trim(), qty: parseNum(pickCol(m2, row, ['so luong'])), money });
+    }
+  }
+  if(ncName){
+    const ncRows = sheetRows(wb.Sheets[ncName]), hi2 = findHeaderRow(ncRows), m2 = buildColMap(ncRows[hi2] || []);
+    for(let r = hi2 + 1; r < ncRows.length; r++){
+      const row = ncRows[r]; if(!row) continue;
+      const id = String(pickCol(m2, row, ['de xuat bao hanh']) ?? '').trim();
+      const rec = proposals.get(id); if(!rec) continue;

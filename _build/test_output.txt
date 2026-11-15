@@ -1,0 +1,26 @@
+Testing 50 cars with updated logic:
+[01] Biển: 59TA-11162   | WO: N54511-261105-009  | Hạng mục: Không lỗi            | Card: front_shock_left (Card)
+[02] Biển: 29F1-69362   | WO: N54511-261105-008  | Hạng mục: Không lỗi            | Card: —
+[03] Biển: 79MD-02531   | WO: N54511-261105-006  | Hạng mục: Lỗi động cơ          | Card: Động cơ (Violet Card)
+[04] Biển: 59TA-11659   | WO: N54511-261105-005  | Hạng mục: Không lỗi            | Card: —
+[05] Biển: 59TA-10611   | WO: N54511-261105-004  | Hạng mục: Không lỗi            | Card: —
+[06] Biển: 29Y5-89173   | WO: N54511-261105-003  | Hạng mục: Không lỗi            | Card: —
+[07] Biển: 29F1-69518   | WO: N54511-261105-002  | Hạng mục: Không lỗi            | Card: —
+[08] Biển: 59TA-10276   | WO: N54511-261105-001  | Hạng mục: Lỗi Esim             | Card: Esim (Amber Card)
+[09] Biển: 29C2-07744   | WO: N54511-261104-009  | Hạng mục: Lỗi Esim             | Card: Esim (Amber Card)
+[10] Biển: 59TA-16116   | WO: N54511-261104-008  | Hạng mục: Lỗi động cơ          | Card: —
+[11] Biển: 50AA-07602   | WO: N54511-261104-007  | Hạng mục: Lỗi PIN              | Card: —
+[12] Biển: 50AC-33967   | WO: N54511-261104-005  | Hạng mục: Không lỗi            | Card: —
+[13] Biển: 79NA-14793   | WO: N54511-261104-004  | Hạng mục: Lỗi giảm xóc trước   | Card: —
+[14] Biển: 59T2-66554   | WO: N54511-261104-003  | Hạng mục: Lỗi PIN              | Card: PIN (Emerald Card)
+[15] Biển: 59TA-26819   | WO: N54511-261104-002  | Hạng mục: Lỗi nút TopCover     | Card: —
+[16] Biển: 59TA-04953   | WO: N54511-261104-001  | Hạng mục: Không lỗi            | Card: —
+[17] Biển: 59TA-13345   | WO: N54511-261103-010  | Hạng mục: Lỗi động cơ          | Card: Động cơ (Violet Card)
+[18] Biển: 59TA-05096   | WO: N54511-261103-009  | Hạng mục: Không lỗi            | Card: —
+[19] Biển: 59TA-09003   | WO: N54511-261103-008  | Hạng mục: Không lỗi            | Card: —
+[20] Biển: 29F1-69673   | WO: N54511-261103-007  | Hạng mục: Không lỗi            | Card: —
+[21] Biển: 29H2-54551   | WO: N54511-261103-006  | Hạng mục: Lỗi giảm xóc trước   | Card: —
+[22] Biển: 29G2-16486   | WO: N54511-261103-005  | Hạng mục: Không lỗi            | Card: —
+[23] Biển: 59TA-12870   | WO: N54511-261103-003  | Hạng mục: Không lỗi            | Card: —
+[24] Biển: 29C2-09634   | WO: N54511-261103-002  | Hạng mục: Lỗi giảm sóc sau     | Card: rear_shock (Card)
+[25] Biển: 59TA-17607   | WO: N54511-261103-001  | Hạng mục: Không lỗi            | Card: topcover (Card)

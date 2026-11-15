@@ -1,0 +1,40 @@
+  }
+
+  const hasLoi = faultList.length > 0;
+  const category = matchCategoryFromFaults(faultList);
+
+  // Nội dung kiểm tra (chẩn đoán)
+  const rawDiag = String(d.diagnosis || d.symptoms || d.content || d.diag || '').trim();
+  // Strip out full metadata strings that clutter the table
+  const isNoisyDiag = rawDiag.includes('Biển số:') || rawDiag.includes('Số khung:') || rawDiag.includes('Số điện thoại:') || rawDiag.includes('Tài xế:') || rawDiag.includes('Họ và tên:');
+  const issueDesc = isNoisyDiag ? '' : rawDiag;
+  const issue = hasLoi ? faultList.join(', ') : 'Không lỗi';
+
+  // 2. GHI CHÚ KTV
+  const note = String(d.note || d.foreman_note || d.advisor_note || '').trim();
+  const hasKtvNote = hasTextContent(note);
+
+  // 3. BẢNG CẬP NHẬT PHÍA DƯỚI (LẤY ĐẦY ĐỦ LỆNH BẢO HÀNH, ĐXBH, CHI TIẾT ĐỀ XUẤT)
+  let pinSerial = String(d.pinSerial || d.battery_serial_old || d.battery_serial || '').trim();
+  const pinSerialNew = String(d.pinSerialNew || d.battery_serial_new || '').trim();
+  let motorSerial = String(d.motorSerial || d.motor_serial_old || d.motor_serial || '').trim();
+  const motorSerialNew = String(d.motorSerialNew || d.motor_serial_new || '').trim();
+  const chargerSerial = '';
+  
+  if (pinSerial.includes('QR ngoài') || pinSerial.includes('DRT00011190')) pinSerial = '';
+  if (motorSerial.includes('QR ngoài') || motorSerial.includes('DRT00011190')) motorSerial = '';
+
+  const removedAt = String(d.removedAt || d.parts_removed_at || '').trim();
+  const partsRemovedAt = String(d.parts_removed_at || '').trim();
+  const motorRemovedAt = String(d.motor_removed_at || d.motorRemovedAt || '').trim();
+  
+  const bhOrderStatus = String(d.bhOrderStatus || d.dms_warranty_status || '').trim();
+  const pinType = String(d.pinType || d.battery_repair_type || '').trim();
+  const motorType = String(d.motorType || d.motor_repair_type || '').trim();
+  const cocStatus = String(d.coc_status || d.cocStatus || '').trim();
+  const sentFactoryAt = String(d.sent_factory_at || d.sentFactoryAt || '').trim();
+  
+  const kinds = Array.isArray(d.warranty_kinds) ? d.warranty_kinds.filter(Boolean) : [];
+  const extra = (d.warranty_extra && typeof d.warranty_extra === 'object') ? d.warranty_extra : {};
+
+  // Chi tiết phê duyệt ĐXBH (Dealer Portal Claims)

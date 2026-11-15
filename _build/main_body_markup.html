@@ -1,0 +1,215 @@
+<body>
+</canvas>
+<div id="appShell">
+
+<!-- Top App Bar -->
+<header class="app-header">
+  <div class="header-container">
+        <div class="brand-group">
+      <div class="brand-emblem-wrap" title="NT - VinFast After-Sales Pro">
+        <img class="brand-logo-img" src="BASE64_LOGO_URL" alt="NT Logo">
+      </div>
+      <div class="brand-text-block">
+        <div class="brand-title-line">
+          <span class="brand-title-main">NT BẢO HÀNH PRO</span>
+          <span class="brand-badge-pro">PRO v3.0</span>
+        </div>
+        <div class="brand-subtitle-line">Hệ thống Phân tích Bảo hành &amp; Quản trị Xưởng Xe điện</div>
+      </div>
+    </div>
+    
+    <div class="header-actions">
+      <!-- Quick VAT Switcher Pill -->
+      <div class="vat-toggle-group" id="topVatGroup">
+        <button type="button" class="vat-toggle-btn active" id="btnVatInc" onclick="setVatMode('inc')">Sau VAT</button>
+        <button type="button" class="vat-toggle-btn" id="btnVatEx" onclick="setVatMode('ex')">Trước VAT</button>
+      </div>
+      
+      <button class="header-btn excel-btn" onclick="exportExcel()">
+        <span>⬇</span> Xuất Excel
+      </button>
+      
+      
+    </div>
+  </div>
+</header>
+
+<!-- Segmented Navigation Tab Bar (Sticky) -->
+<nav class="nav-tabbar">
+  <div class="nav-container">
+    <button class="nav-tab active" data-tab="overview" onclick="switchTab('overview')">
+      <span>📊</span> Tổng quan doanh thu
+    </button>
+    <button class="nav-tab" data-tab="plan" onclick="switchTab('plan')">
+      <span>🎯</span> Kế hoạch &amp; Tồn kho
+    </button>
+    <button class="nav-tab" data-tab="parts" onclick="switchTab('parts')">
+      <span>📦</span> Phụ tùng 3 tháng
+      <span class="tab-badge" id="badgePartsCount">0</span>
+    </button>
+    <button class="nav-tab" data-tab="claims" onclick="switchTab('claims')">
+      <span>📋</span> Tra cứu đề xuất
+      <span class="tab-badge" id="badgeClaimsCount">0</span>
+    </button>
+    <button class="nav-tab" data-tab="checkxe" onclick="switchTab('checkxe')">
+      <span>🔍</span> Check lỗi xe hàng ngày
+      <span class="tab-badge" id="badgeUncheckedCount" style="background:#fee2e2;color:#dc2626;font-weight:700">0</span>
+    </button>
+    <button class="nav-tab" data-tab="settings" onclick="switchTab('settings')">
+      <span>⚙️</span> Tệp &amp; Cài đặt
+      <span class="tab-badge" id="badgeFilesCount">0</span>
+    </button>
+  </div>
+</nav>
+
+<!-- Context / Summary Bar -->
+<div class="context-strip">
+  <div class="context-container">
+    <div class="context-chips" id="contextChips">
+      <span class="chip target-chip">🎯 Kỳ: <b id="ctxTargetMonth">—</b></span>
+      <span class="chip">💰 Mục tiêu: <b id="ctxTargetVal">—</b></span>
+      <span class="chip">📈 Dự kiến: <b id="ctxExpectedVal">—</b></span>
+      <span class="chip">📁 Nguồn: <b id="ctxSourcesVal">—</b></span>
+      <span class="chip" id="ctxCheckXeChip" style="display:none">🔍 Xe cần check: <b id="ctxUncheckedVal" style="color:#dc2626">0</b></span>
+    </div>
+    <div>
+      <span id="ctxVatNote" style="font-size:11.5px;color:var(--text-muted)"></span>
+    </div>
+  </div>
+</div>
+
+<main>
+  <!-- TAB 1: TỔNG QUAN -->
+  <div class="tab-pane active" id="pane_overview">
+    <div id="overviewContent"></div>
+  </div>
+
+  <!-- TAB 2: KẾ HOẠCH & TỒN KHO -->
+  <div class="tab-pane" id="pane_plan">
+    <div id="planContent"></div>
+  </div>
+
+  <!-- TAB 3: PHỤ TÙNG 3 THÁNG -->
+  <div class="tab-pane" id="pane_parts">
+    <div id="partsContent"></div>
+  </div>
+
+  <!-- TAB 4: TRA CỨU ĐỀ XUẤT -->
+  <div class="tab-pane" id="pane_claims">
+    <div id="claimsContent"></div>
+  </div>
+
+  <!-- TAB 5: CHECK LỖI XE HÀNG NGÀY (SERVICEOS) -->
+  <div class="tab-pane" id="pane_checkxe">
+    <div id="checkXeContent"></div>
+  </div>
+
+  <!-- TAB 6: TỆP & CÀI ĐẶT -->
+  <div class="tab-pane" id="pane_settings">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">📁 Nhập dữ liệu file Excel</div>
+          <div class="card-subtitle">Kéo thả file vào khu vực bên dưới hoặc bấm để chọn file từ máy tính</div>
+        </div>
+      </div>
+      
+      <div class="dropzone-grid">
+        <div>
+          <div class="dropzone" id="dropZone">
+            <div class="dropzone-icon">📋</div>
+            <div class="dropzone-title">File Dữ Liệu BẢO HÀNH</div>
+            <div class="dropzone-desc">File Active warranty claim, DeXuatBaoHanh_PhuTung, hoặc file Portal (warranty-claims). Hỗ trợ chọn nhiều file.</div>
+          </div>
+          <input type="file" id="fileInput" multiple accept=".xlsx,.xls">
+          <div class="source-list" id="srcList"></div>
+          <div id="parseWarn" style="margin-top:10px"></div>
+        </div>
+        
+        <div>
+          <div class="dropzone" id="invDropZone">
+            <div class="dropzone-icon">📦</div>
+            <div class="dropzone-title">File TỒN KHO PHỤ TÙNG (Tùy chọn)</div>
+            <div class="dropzone-desc">File Excel chứa cột "Mã" / "Code" và cột "Tồn" / "Số lượng" để so sánh trực tiếp với kế hoạch.</div>
+          </div>
+          <input type="file" id="invFileInput" accept=".xlsx,.xls">
+          <div class="source-list" id="invSrcList"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">⚙️ Thiết lập mục tiêu &amp; Quy tắc tính</div>
+          <div class="card-subtitle">Tùy chỉnh tháng kế hoạch, doanh thu mục tiêu và ngày chốt sổ</div>
+        </div>
+      </div>
+      
+      <div class="settings-grid">
+        <div class="field-group">
+          <label class="field-label">Tháng lập kế hoạch (Tháng mục tiêu)</label>
+          <input type="month" id="targetMonth" class="field-input">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Mục tiêu doanh thu (VND / tháng)</label>
+          <input type="number" id="targetValue" class="field-input" step="1000000" min="0">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Ngày chốt doanh thu trong tháng</label>
+          <input type="number" id="cutDay" class="field-input" min="1" max="28" value="22">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Chế độ thuế doanh thu</label>
+          <select id="vatMode" class="field-input" style="font-weight:600">
+            <option value="inc">Sau VAT (Gồm thuế) — Mặc định</option>
+            <option value="ex">Trước VAT (Chưa thuế) — Khớp cột trước VAT</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-top:16px;padding-top:14px;border-top:1px dashed var(--border)">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:500">
+          <input type="checkbox" id="cycleToggle" checked>
+          <span><b>Kỳ doanh thu chốt ngày 22</b> (23 tháng trước → 22 tháng này)</span>
+        </label>
+        
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:12px;color:var(--text-muted)">Nguồn file đang bật:</span>
+          <div id="srcToggle" style="display:flex;gap:12px;font-size:12px"></div>
+        </div>
+      </div>
+
+      <div id="ruleBox" style="margin-top:16px"></div>
+    </div>
+
+    <!-- Help Accordion -->
+    <details class="card" style="cursor:pointer">
+      <summary style="font-weight:700;color:var(--primary);font-size:14px">📖 Hướng dẫn sử dụng &amp; Nguyên tắc tính toán chi tiết</summary>
+      <div style="margin-top:12px;line-height:1.6;color:var(--text-main);font-size:13px">
+        <h4 style="margin:8px 0 4px">Cách dùng nhanh:</h4>
+        <ul style="padding-left:20px;margin-bottom:12px">
+          <li>1. Kéo thả file Excel dữ liệu bảo hành vào Tab "Tệp &amp; Cài đặt" — có thể kéo nhiều file cùng lúc.</li>
+          <li>2. Chỉnh tháng kế hoạch và mục tiêu doanh thu nếu cần (mặc định 400.000.000 đ chốt ngày 22).</li>
+          <li>3. Xem kết quả ở các Tab: <b>Tổng quan doanh thu</b>, <b>Kế hoạch &amp; Tồn kho</b>, <b>Phụ tùng 3 tháng</b>, và <b>Tra cứu đề xuất</b>. Bấm <b>Xuất Excel</b> để tải toàn bộ bảng tính.</li>
+        </ul>
+        <h4 style="margin:8px 0 4px">Quy ước tính toán:</h4>
+        <ul style="padding-left:20px">
+          <li><b>Đơn vị tính:</b> Mỗi đề xuất bảo hành (1 lệnh sửa chữa) là 1 đơn vị. Dù có nhiều phụ tùng khác nhau, tiền lấy theo tổng tiền đề xuất.</li>
+          <li><b>Doanh thu chốt:</b> Các đề xuất ở trạng thái <b>Hoàn thành</b> và <b>Đã phê duyệt</b> được tính là doanh thu chốt. <b>Chờ phê duyệt cấp 1 / 2, Mở</b> được tính là dự trù. <b>Huỷ / Từ chối</b> bị loại bỏ.</li>
+          <li><b>Tự động khấu trừ:</b> Số lượng và số tiền đã làm trong kỳ kế hoạch được tự động trừ ra khỏi kế hoạch phụ tùng còn lại.</li>
+          <li><b>Tính bảo mật:</b> Ứng dụng chạy 100% trong trình duyệt máy bạn, không gửi dữ liệu ra ngoài Internet.</li>
+        </ul>
+      </div>
+    </details>
+  </div>
+
+  <div class="app-footer">
+    Hệ thống Phân tích Bảo hành &amp; Lập Kế hoạch Doanh thu · Phiên bản 2.0 Modern · Dữ liệu bảo mật cục bộ
+  </div>
+</main>
+</div>
+
+<!-- Password Gate Removed -->
+
+

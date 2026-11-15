@@ -1,0 +1,66 @@
+{
+  "manifest_version": 3,
+  "name": "Bảo Hành PRO — Realtime Sync Bridge",
+  "version": "2.2.0",
+  "description": "Tự động đồng bộ thời gian thực (Zero-click) dữ liệu xe từ ServiceOS và đề xuất bảo hành từ VinFast Dealer Portal sang hệ thống Quản Trị Bảo Hành PRO.",
+  "icons": {
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Bảo Hành PRO — Trạng thái Realtime"
+  },
+  "permissions": [
+    "storage",
+    "alarms",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://*.anthinhtech.vn/*",
+    "https://att-serviceos.anthinhtech.vn/*",
+    "https://*.vinfast.com/*",
+    "https://dealer-portal.vinfast.com/*",
+    "https://dealerportal.vinfast.com/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*",
+    "https://*/*",
+    "file://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://att-serviceos.anthinhtech.vn/*",
+        "https://*.anthinhtech.vn/*"
+      ],
+      "js": ["content_serviceos.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://dealer-portal.vinfast.com/*",
+        "https://dealerportal.vinfast.com/*",
+        "https://*.vinfast.com/*"
+      ],
+      "js": ["content_dealerportal.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content_webapp.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["injected_interceptor.js"],
+      "matches": [
+        "https://*.anthinhtech.vn/*",
+        "https://*.vinfast.com/*"
+      ]
+    }
+  ]
+}

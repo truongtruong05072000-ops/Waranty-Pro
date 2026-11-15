@@ -1,0 +1,50 @@
+
+  // Lấy chính xác Lệnh bảo hành (dms_warranty_code) và Mã đề xuất (dms_claim_code)
+  // LƯU Ý QUAN TRỌNG: dms_ro_code (lệnh sửa chữa WO) KHÔNG PHẢI là Lệnh bảo hành!
+  let bhCode = String(d.bhCode || d.dms_warranty_code || d.bh_order_code || '').trim();
+  let claimCode = String(d.claimCode || d.dms_claim_code || '').trim();
+
+  // Chỉ nhận claimCode nếu có tiền tố WC- (mã đề xuất bảo hành)
+  if (status.startsWith('WC-') || warrantyStatus.startsWith('WC-')) {
+    if (!claimCode) claimCode = status.startsWith('WC-') ? status : warrantyStatus;
+    status = 'Đã phê duyệt';
+    warrantyStatus = 'approved';
+  }
+
+  // 1. HẠNG MỤC LỖI: Lấy chuẩn xác từ faults, warranty_kinds, linh kiện tháo thay hoặc chẩn đoán
+  let faultList = Array.isArray(d.faults) 
+    ? d.faults.filter(Boolean) 
+    : (typeof d.faults === 'string' && d.faults.trim() ? [d.faults.trim()] : []);
+  
+  // Tự động bổ sung lỗi nếu ServiceOS chỉ tích warranty_kinds hoặc nhập serial linh kiện
+  const kindsRaw = Array.isArray(d.warranty_kinds) ? d.warranty_kinds.filter(Boolean) : [];
+  if (faultList.length === 0) {
+    kindsRaw.forEach(k => {
+      const kl = String(k).toLowerCase();
+      if (kl === 'pin' || kl.includes('battery')) { if (!faultList.includes('Lỗi PIN')) faultList.push('Lỗi PIN'); }
+      else if (kl === 'motor' || kl.includes('dong_co') || kl.includes('động cơ')) { if (!faultList.includes('Lỗi động cơ')) faultList.push('Lỗi động cơ'); }
+      else if (kl === 'esim' || kl.includes('sim')) { if (!faultList.includes('Lỗi Esim')) faultList.push('Lỗi Esim'); }
+      else if (kl.includes('front_shock') || kl.includes('giam_xoc_truoc')) { if (!faultList.includes('Lỗi giảm xóc trước')) faultList.push('Lỗi giảm xóc trước'); }
+      else if (kl.includes('rear_shock') || kl.includes('giam_xoc_sau')) { if (!faultList.includes('Lỗi giảm xóc sau')) faultList.push('Lỗi giảm xóc sau'); }
+      else if (kl.includes('topcover')) { if (!faultList.includes('Lỗi nút TopCover')) faultList.push('Lỗi nút TopCover'); }
+      else if (kl) { faultList.push('Lỗi ' + k); }
+    });
+    
+    // Kiểm tra serial PIN / ĐC hoặc trạng thái bảo hành linh kiện
+    const hasBatInfo = Boolean(d.battery_serial_old || d.battery_serial || d.battery_repair_type || d.parts_removed_at || d.warranty_status === 'waiting_battery');
+    const hasMotInfo = Boolean(d.motor_serial_old || d.motor_serial || d.motor_repair_type || d.motor_removed_at || d.warranty_status === 'waiting_motor');
+    if (hasBatInfo && !faultList.some(f => f.toLowerCase().includes('pin'))) faultList.push('Lỗi PIN');
+    if (hasMotInfo && !faultList.some(f => f.toLowerCase().includes('động cơ') || f.toLowerCase().includes('motor'))) faultList.push('Lỗi động cơ');
+
+    // Kiểm tra diễn giải / triệu chứng (symptoms / diagnosis)
+    const symLower = String(d.symptoms || d.diagnosis || '').toLowerCase();
+    if (symLower.includes('lỗi pin') || symLower.includes('loi pin') || symLower.includes('thay pin')) {
+      if (!faultList.some(f => f.toLowerCase().includes('pin'))) faultList.push('Lỗi PIN');
+    }
+    if (symLower.includes('lỗi động cơ') || symLower.includes('loi dong co') || symLower.includes('lỗi đc')) {
+      if (!faultList.some(f => f.toLowerCase().includes('động cơ') || f.toLowerCase().includes('motor'))) faultList.push('Lỗi động cơ');
+    }
+    if (symLower.includes('lỗi esim') || symLower.includes('loi esim') || symLower.includes('mất sóng')) {
+      if (!faultList.some(f => f.toLowerCase().includes('esim'))) faultList.push('Lỗi Esim');
+    }
+    if (symLower.includes('giảm xóc') || symLower.includes('phuộc')) {

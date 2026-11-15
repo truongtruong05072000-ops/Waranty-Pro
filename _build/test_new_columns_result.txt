@@ -1,0 +1,53 @@
+Total cars: 50
+[01] 59TA-11162   | []                   | TT LK: Chờ kiểm tra     | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[02] 29F1-69362   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[03] 79MD-02531   | ['Lỗi động cơ']      | TT LK: Chờ Động cơ      | Serial: VFHCEAD230609D0030                 | Tháo: 2026-11-05 | Check: Đã check
+[04] 59TA-11659   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[05] 59TA-10611   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[06] 29Y5-89173   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[07] 29F1-69518   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[08] 59TA-10276   | ['Lỗi Esim']         | TT LK: Chờ kiểm tra     | Serial: —                                  | Tháo: —          | Check: Đã check
+[09] 29C2-07744   | ['Lỗi Esim']         | TT LK: Chờ kiểm tra     | Serial: —                                  | Tháo: —          | Check: Đã check
+[10] 59TA-16116   | ['Lỗi động cơ']      | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Chưa check
+[11] 50AA-07602   | ['Lỗi PIN']          | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Chưa check
+[12] 50AC-33967   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[13] 79NA-14793   | ['Lỗi giảm xóc trước', 'Lỗi Esim'] | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Chưa check
+[14] 59T2-66554   | ['Lỗi PIN']          | TT LK: Chờ PIN          | Serial: BAT12006000070003094230807N00353   | Tháo: 2026-11-04 | Check: Đã check
+[15] 59TA-26819   | ['Lỗi nút TopCover'] | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Chưa check
+[16] 59TA-04953   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[17] 59TA-13345   | ['Lỗi động cơ']      | TT LK: Chờ kiểm tra     | Serial: —                                  | Tháo: —          | Check: Đã check
+[18] 59TA-05096   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[19] 59TA-09003   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[20] 29F1-69673   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[21] 29H2-54551   | ['Lỗi giảm xóc trước'] | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Chưa check
+[22] 29G2-16486   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[23] 59TA-12870   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[24] 29C2-09634   | ['Lỗi giảm sóc sau'] | TT LK: Chờ kiểm tra     | Serial: —                                  | Tháo: —          | Check: Chưa check
+[25] 59TA-17607   | []                   | TT LK: Chờ kiểm tra     | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[26] 99AA-05511   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[27] 59T2-67557   | ['Lỗi động cơ', 'Lỗi giảm sóc sau'] | TT LK: Chờ kiểm tra     | Serial: —                                  | Tháo: —          | Check: Chưa check
+[28] 59TA-18909   | ['Lỗi giảm sóc sau'] | TT LK: Chờ kiểm tra     | Serial: —                                  | Tháo: —          | Check: Chưa check
+[29] 50AC-02097   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[30] 65MA-044.92  | ['Lỗi PIN']          | TT LK: Chờ PIN          | Serial: BAT12006000090003094231023N00509   | Tháo: 2026-11-04 | Check: Đã check
+[31] 50AA-12035   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[32] 65MA-132.55  | ['Lỗi PIN']          | TT LK: Chờ PIN          | Serial: BAT12006000100003094240328N00388   | Tháo: 2026-11-04 | Check: Đã check
+[33] 59TA-16633   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[34] 59TA-07773   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[35] 29Y5-88880   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[36] 65MA-142.26  | []                   | TT LK: Chờ kiểm tra     | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[37] 29X7-73582   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[38] 29F1-70449   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[39] 59TA-17657   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[40] 59TA-04879   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[41] 50AA-38562   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[42] 65MA-088.36  | ['Lỗi PIN']          | TT LK: Chờ kiểm tra     | Serial: —                                  | Tháo: —          | Check: Đã check
+[43] 59GA-16706   | ['Lỗi PIN']          | TT LK: Chờ PIN          | Serial: BAT12006000110003094240522D00038   | Tháo: 2026-11-01 | Check: Đã check
+[44] 50AA-12282   | ['Lỗi nút TopCover'] | TT LK: Chờ kiểm tra     | Serial: —                                  | Tháo: —          | Check: Chưa check
+[45] 59TA-12718   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[46] 50AA-38654   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[47] 29L1-99579   | ['Lỗi giảm xóc trước'] | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Chưa check
+[48] 50AC-19152   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[49] 59TA-11648   | []                   | TT LK: —                | Serial: —                                  | Tháo: —          | Check: Xe không lỗi
+[50] 59TA-05144   | ['Lỗi SCU']          | TT LK: Chờ kiểm tra     | Serial: —                                  | Tháo: —          | Check: Đã check
+
+Summary counts: Xe không lỗi: 30, Đã check: 10, Chưa check: 10, Tổng: 50

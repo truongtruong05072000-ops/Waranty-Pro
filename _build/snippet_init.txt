@@ -1,0 +1,65 @@
+function initSettingsUI(){
+  $('#targetMonth').value = settings.targetMonth;
+  $('#targetValue').value = settings.target;
+  $('#cutDay').value = settings.cut;
+  $('#cycleToggle').checked = settings.cycle22;
+  const vatEl = $('#vatMode');
+  if(vatEl){
+    vatEl.value = settings.vatMode;
+    vatEl.onchange = e => setVatMode(e.target.value);
+  }
+  $('#targetMonth').onchange = e => { settings.targetMonth = e.target.value || defaultTargetMonth(); initTheme();
+loadPrepared();
+loadCheckXeOrders();
+initBookmarkletCode();
+renderCheckXe();
+checkUrlImport();
+window.addEventListener('hashchange', checkUrlImport);
+renderAll(); };
+  $('#targetValue').onchange = e => { settings.target = +e.target.value || 0; renderAll(); };
+  $('#cutDay').onchange = e => { settings.cut = Math.min(28, Math.max(1, +e.target.value || 22)); e.target.value = settings.cut; renderAll(); };
+  $('#cycleToggle').onchange = e => { settings.cycle22 = e.target.checked; renderAll(); };
+}
+
+const dz = $('#dropZone');
+dz.onclick = () => $('#fileInput').click();
+$('#fileInput').onchange = e => { handleFiles([...e.target.files]); e.target.value = ''; };
+['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('over'); }));
+dz.addEventListener('drop', e => handleFiles([...e.dataTransfer.files]));
+
+const idz = $('#invDropZone');
+idz.onclick = () => $('#invFileInput').click();
+$('#invFileInput').onchange = e => { handleInvFiles([...e.target.files]); e.target.value = ''; };
+['dragenter', 'dragover'].forEach(ev => idz.addEventListener(ev, e => { e.preventDefault(); idz.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => idz.addEventListener(ev, e => { e.preventDefault(); idz.classList.remove('over'); }));
+idz.addEventListener('drop', e => handleInvFiles([...e.dataTransfer.files]));
+
+// gateBtn removed
+// gate listener removed
+// gate check removed
+
+loadPrepared();
+loadCheckXeOrders();
+initBookmarkletCode();
+renderCheckXe();
+checkUrlImport();
+window.addEventListener('hashchange', checkUrlImport);
+initSettingsUI();
+renderSources();
+renderAll();
+window.__handleFiles = handleFiles;
+
+// =========================================================
+// HIỆU ỨNG TƯƠNG TÁC 3D MƯỢT MÀ CHO LOGO NT (3D PERSPECTIVE)
+// =========================================================
+(function() {
+  function setupEmblemInteraction() {
+    const emblem = document.querySelector('.brand-emblem-wrap');
+    if (!emblem) return;
+    
+    let isHovered = false;
+    emblem.addEventListener('mouseenter', () => { isHovered = true; });
+    emblem.addEventListener('mouseleave', () => {
+      isHovered = false;
+      emblem.style.transform = 'perspective(400px) rotateX(0deg) rotateY(0deg) scale(1)';

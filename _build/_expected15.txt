@@ -1,0 +1,23 @@
+=== DA LAM TRONG KY 23/09-22/10 (confirmed = Hoan thanh + Da phe duyet) ===
+so de xung confirmed: 63 (file2: 5) | labor=10,586,637 | parts_money=103,975,811 | total=114,562,448 | pipe=22,891,182
+  DRT00011190AA      qty=13    money=31,497,225
+  BAT12006000        qty=1     money=14,679,465
+  CNI00009360        qty=8     money=13,962,509
+  BDP12006000AC      qty=17    money=13,527,988
+  DRT00009725        qty=3     money=12,096,825
+  DRT00010066        qty=5     money=6,200,435
+  DRT00006046BAR     qty=1     money=6,037,377
+  DRT00009394        qty=3     money=3,108,230
+  DRT00009885        qty=1     money=1,707,487
+  DRT00001717        qty=1     money=617,574
+  DRT00007831        qty=1     money=540,697
+
+=== NHIP NGAY === histCycleDays=89 histDaily=13,133,762
+cycleDays=29 elapsed(to 2026-10-08)=16 expected=137,453,630 curDaily=8,590,852 ratio=0.6541 projection=249,134,704
+
+=== KE HOACH (base) === share=0.900176 partsTarget=360,070,568 scale2=1.026602
+  DRT00011190AA      qBase=76   done=13   conLai=63
+  BDP12006000AC      qBase=61   done=17   conLai=44
+  CNI00009360        qBase=18   done=8    conLai=10
+  SUS00008613        qBase=39   done=0    conLai=39
+  DRT00009725        qBase=8    done=3    conLai=5

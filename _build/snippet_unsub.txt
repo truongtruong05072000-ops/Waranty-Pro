@@ -1,0 +1,40 @@
+  const allCheckOrders = (state.checkXe && state.checkXe.orders) || [];
+  allCheckOrders.forEach(o => {
+    const gid = (o.customerGroup && o.customerGroup.id) || 'retail';
+    if(custMap[gid]) custMap[gid].cars++;
+  });
+  const totalCustRev = Object.values(custMap).reduce((s, g) => s + g.rev, 0) || 1;
+  Object.values(custMap).forEach(g => {
+    g.pct = Math.round((g.rev / totalCustRev) * 100);
+  });
+  const customerBreakdown = {
+    groups: Object.values(custMap),
+    totalRev: totalCustRev,
+    totalClaims: totalClaimsCount,
+    totalCars: allCheckOrders.length
+  };
+
+  // CẢNH BÁO LỆNH SỬA CHỮA BẢO HÀNH CHƯA LÀM ĐỀ XUẤT
+  const unsubmittedWarrantyOrders = allCheckOrders.filter(o => o.isUnsubmittedWarranty);
+
+  state.computed = {
+    recs, months, months3, parts3, rev3, cnt3, total3, revAvg, cntAvg, parts3Money, labor3, scale,
+    plan, planMajor, planMinorAgg, planPartsMoney, planLabor, planLaborRest, propsNeed, propsNeedBase, avgPerProp,
+    target: t, expected, remaining, daysLeft, dailyRate: daysLeft ? remainingPlan / daysLeft : null,
+    preparedInfo, coveredParts, partsShare, partsTarget, remainingParts, scale2, planOthersMoney, expectedPlan, remainingPlan,
+    doneAgg, doneCnt, doneLabor, doneTotal, donePartsMoney,
+    histDaily, curDaily, elapsedDays, cycleDays, ratio, projection, inCycle,
+    verdict, vClass, vIcon, verdictDetail, bestRev3: rev3.length ? Math.max(...rev3) : 0,
+    returnMetrics, customerBreakdown, unsubmittedWarrantyOrders,
+    unknownStatus: [...unknownStatus.entries()], noDate
+  };
+  return state.computed;
+}
+
+/* ============================ Rendering ============================ */
+function renderSources(){
+  const el = $('#srcList');
+  el.innerHTML = state.sources.map(s => `
+    <div class="source-item">
+      <div class="source-info">
+        <span class="source-icon">📋</span>

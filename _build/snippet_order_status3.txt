@@ -1,0 +1,35 @@
+          <span class="v ${submittedVal === '—' ? 'v-empty' : ''}">${esc(submittedVal)}</span>
+        </div>
+        <div class="sos-cell">
+          <span class="k">Ngày duyệt</span>
+          <span class="v ${approvedVal === '—' ? 'v-empty' : ''}">${esc(approvedVal)}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Chuẩn hóa một bản ghi xe theo đúng chuẩn ServiceOS
+function normalizeOrder(raw, i){
+  const d = (raw && raw.work_order) ? raw.work_order : (raw || {});
+  let wo = String(d.wo || d.code || d.dms_ro_code || d.work_order_code || '—').trim();
+  let plate = String(d.plate || d.license_plate || d.licensePlate || d.bien_so || d.bienSo || '—').trim();
+  let vin = String(d.vin || d.chassis_number || d.so_khung || '—').trim();
+  let vehicle = String(d.vehicle || d.model || d.dong_xe || '—').trim();
+  const customer = String(d.customer || d.customer_name || '—').trim();
+  const tech = String(d.tech || d.technician_name || 'Chưa phân công').trim();
+  let status = String(d.status || d.status_label || 'Trong xưởng').trim();
+  let warrantyStatus = String(d.warrantyStatus || d.warranty_status || d.dms_warranty_status || '').trim();
+
+  // Khôi phục Biển số nếu bị gán nhầm hoặc trống
+  const plateRegex = /[0-9]{2}[A-Z][0-9A-Z]?[-.\s]?[0-9]{4,5}/i;
+  if (plate === '—' || !plate) {
+    const searchStr = `${wo} ${vin} ${customer} ${JSON.stringify(d)}`;
+    const m = searchStr.match(plateRegex);
+    if (m) plate = m[0].toUpperCase().replace(/\s+/g, '-');
+  }
+
+  // Lấy chính xác Lệnh bảo hành (dms_warranty_code) và Mã đề xuất (dms_claim_code)
+  // LƯU Ý QUAN TRỌNG: dms_ro_code (lệnh sửa chữa WO) KHÔNG PHẢI là Lệnh bảo hành!
+  let bhCode = String(d.bhCode || d.dms_warranty_code || d.bh_order_code || '').trim();
+  let claimCode = String(d.claimCode || d.dms_claim_code || '').trim();

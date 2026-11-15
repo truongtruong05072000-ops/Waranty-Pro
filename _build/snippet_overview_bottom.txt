@@ -1,0 +1,50 @@
+
+      <!-- Card Cơ cấu Nhóm Khách Hàng (GSM, Bship, Khách lẻ) -->
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header">
+          <div>
+            <div class="card-title">👥 Cơ cấu doanh thu theo Nhóm Khách Hàng</div>
+            <div class="card-subtitle">Phân bổ: <b>GSM (Xanh SM)</b> · <b>Bship</b> · <b>Khách lẻ</b> · Doanh nghiệp khác</div>
+          </div>
+        </div>
+        <div style="padding:14px 18px">
+          ${renderCustomerBreakdownHtml(C.customerBreakdown)}
+        </div>
+      </div>
+    </div>`;
+
+  $('#overviewContent').innerHTML = `
+    ${heroKpiHtml}
+    ${verdictBannerHtml}
+    ${unsubmittedAlertHtml}
+    ${qualityAndCustomerCardsHtml}
+    
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(480px, 1fr));gap:20px;align-items:start">
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header">
+          <div>
+            <div class="card-title">${window.ICONS.chart} Doanh thu theo tháng (Chốt ngày ${cutTxt})</div>
+            <div class="card-subtitle">Chốt = Hoàn thành + Đã duyệt · Dự trù = Chờ duyệt cấp 1/2, Mở</div>
+          </div>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th class="l">Kỳ doanh thu</th>
+                <th>Số ĐX chốt</th>
+                <th>Doanh thu chốt</th>
+                <th>Dự trù</th>
+                <th>Tổng dự kiến</th>
+                <th>Chênh lệch</th>
+                <th>% Đạt</th>
+              </tr>
+            </thead>
+            <tbody>${rowsM}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header">
+          <div>

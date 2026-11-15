@@ -1,0 +1,90 @@
+        <td class="num">${fmtVND(r.parts.reduce((s, p) => s + p.money, 0))}</td>
+        <td class="num">${fmtVND(r.labor)}</td>
+        <td class="num"><b style="color:var(--primary)">${fmtVND(r.total)}</b></td>
+      </tr>`;
+  }).join('');
+
+  const cmOpts = [...new Set(C.recs.map(r => r.cm).filter(Boolean))].sort().reverse().map(m => `<option value="${m}" ${f.cm === m ? 'selected' : ''}>${monthLabel(m)}</option>`).join('');
+
+  $('#claimsContent').innerHTML = `
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">📋 Tra cứu chi tiết từng đề xuất bảo hành</div>
+          <div class="card-subtitle">Mỗi lệnh sửa chữa được gộp 1 dòng duy nhất · Hỗ trợ lọc theo kỳ, trạng thái và từ khoá</div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <select class="select-input" id="fCm" onchange="setFilter('cm',this.value)">
+            <option value="">— Mọi kỳ doanh thu —</option>
+            ${cmOpts}
+          </select>
+          <select class="select-input" id="fCustGroup" onchange="setFilter('custGroup',this.value)">
+            <option value="">— Mọi nhóm khách —</option>
+            <option value="gsm" ${f.custGroup === 'gsm' ? 'selected' : ''}>🚕 GSM (Xanh SM)</option>
+            <option value="bship" ${f.custGroup === 'bship' ? 'selected' : ''}>🛵 Bship</option>
+            <option value="retail" ${f.custGroup === 'retail' ? 'selected' : ''}>👤 Khách lẻ</option>
+            <option value="corp" ${f.custGroup === 'corp' ? 'selected' : ''}>🏢 Doanh nghiệp</option>
+          </select>
+          <select class="select-input" id="fReturnStatus" onchange="setFilter('returnStatus',this.value)">
+            <option value="">— Trạng thái trả về —</option>
+            <option value="all_returned" ${f.returnStatus === 'all_returned' ? 'selected' : ''}>❌ Tất cả ĐX bị trả về</option>
+            <option value="level_1" ${f.returnStatus === 'level_1' ? 'selected' : ''}>⚠️ Cấp 1 trả về</option>
+            <option value="level_2" ${f.returnStatus === 'level_2' ? 'selected' : ''}>🚫 Cấp 2 trả về</option>
+          </select>
+          <select class="select-input" id="fKind" onchange="setFilter('kind',this.value)">
+            <option value="">— Mọi trạng thái —</option>
+            <option value="confirmed" ${f.kind === 'confirmed' ? 'selected' : ''}>Chốt — Doanh thu (Hoàn thành + Đã duyệt)</option>
+            <option value="pipeline" ${f.kind === 'pipeline' ? 'selected' : ''}>Dự trù (Chờ duyệt cấp 1/2 · Mở)</option>
+            <option value="excluded" ${f.kind === 'excluded' ? 'selected' : ''}>Loại bỏ (Huỷ / Từ chối)</option>
+          </select>
+          <input class="search-input" id="qSearch" placeholder="🔍 Tìm mã ĐX, VIN, Lệnh SC, Phụ tùng…" oninput="setFilter('q',this.value)" value="${esc(f.q)}">
+        </div>
+        <div class="toolbar-right">
+          <span style="font-size:12.5px;color:var(--text-muted);font-weight:600">${propRows.length} đề xuất</span>
+        </div>
+      </div>
+
+      <div class="table-container scrollable">
+        <table>
+          <thead>
+            <tr>
+              <th class="l">Mã ĐX</th>
+              <th class="l">Nguồn file</th>
+              <th class="l">Lệnh sửa chữa</th>
+              <th class="l">Số VIN</th>
+              <th>Ngày duyệt</th>
+              <th>Kỳ</th>
+              <th class="l">Trạng thái</th>
+              <th class="l">Phụ tùng (SL × Mã)</th>
+              <th>Tiền phụ tùng</th>
+              <th>Tiền công</th>
+              <th>Tổng tiền ĐX</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${propHtml || '<tr><td colspan="11" class="empty-state">Không có dữ liệu khớp bộ lọc</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+window.setFilter = (k, v) => {
+  state.filters[k] = v;
+  renderAll();
+  const el = k === 'q' ? $('#qSearch') : (k === 'cm' ? $('#fCm') : $('#fKind'));
+  if(el){ el.focus(); if(k === 'q') el.setSelectionRange(v.length, v.length); }
+};
+
+window.filterParts = q => {
+  q = norm(q);
+  $('#partsTable').querySelectorAll('tbody tr:not(.total-row)').forEach(tr => {
+    tr.style.display = !q || norm(tr.textContent).includes(q) ? '' : 'none';
+  });
+};
+
+function qtyOfMonth(C, cm, code){
+  let s = 0;

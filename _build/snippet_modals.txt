@@ -1,0 +1,66 @@
+<div id="modalEditNote" class="modal-overlay" hidden>
+  <div class="modal-box" style="max-width:500px">
+    <button class="modal-close" onclick="closeEditNoteModal()">✕</button>
+    <div class="modal-title">✏️ Cập nhật Ghi chú KTV</div>
+    <div id="editNoteInfo" style="font-size:13px;color:var(--text-muted);margin-bottom:12px"></div>
+    
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px">Nội dung ghi chú KTV (nhập nội dung = đã check):</label>
+      <textarea id="editNoteInput" class="field-input" rows="3" style="width:100%;font-size:13px;resize:vertical" placeholder="Nhập tình trạng kiểm tra xe, lỗi xác định..."></textarea>
+    </div>
+
+    <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:12px">
+      Gợi ý nhanh:
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
+        <button type="button" class="btn secondary" style="padding:2px 8px;font-size:11px" onclick="setQuickNote('Đã test động cơ, hoạt động bình thường')">Đã test động cơ</button>
+        <button type="button" class="btn secondary" style="padding:2px 8px;font-size:11px" onclick="setQuickNote('Pin sụt nguồn, cần thay pin bảo hành')">Pin sụt nguồn</button>
+        <button type="button" class="btn secondary" style="padding:2px 8px;font-size:11px" onclick="setQuickNote('Hỏng cảm biến Hall động cơ')">Hỏng cảm biến Hall</button>
+        <button type="button" class="btn secondary" style="padding:2px 8px;font-size:11px" onclick="setQuickNote('Đã kiểm tra phanh và cổ phốt')">Đã KT phanh/cổ</button>
+        <button type="button" class="btn secondary" style="padding:2px 8px;font-size:11px" onclick="setQuickNote('Không có phụ tùng thay thế')">Không có phụ tùng</button>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn secondary" onclick="closeEditNoteModal()">Huỷ</button>
+      <button class="btn" onclick="saveEditedNote()">Lưu ghi chú</button>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- Modal Hướng dẫn Đồng Bộ Realtime -->
+<div id="modalRealtime" class="modal-overlay" hidden>
+  <div class="modal-box" style="max-width:580px;background:#0f172a;border:1.5px solid #10b981">
+    <button class="modal-close" onclick="closeRealtimeModal()">✕</button>
+    <div class="modal-title" style="color:#34d399;display:flex;align-items:center;gap:8px">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#34d399;box-shadow:0 0 10px #34d399"></span>
+      Cơ chế Tự Động Real-time (Zero-Click)
+    </div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.6">
+      Trang web đã được kích hoạt cổng nhận <b>BroadcastChannel</b> và <b>Chrome Extension Bridge</b>. Dữ liệu từ ServiceOS và Dealer Portal sẽ tự động nhảy vào web mà bạn không cần bấm bất kỳ nút nào!
+    </div>
+
+    <div style="background:rgba(30,41,59,0.8);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:14px;margin-bottom:14px">
+      <div style="font-size:13.5px;font-weight:700;color:#38bdf8;margin-bottom:6px">
+        🧩 Cách kích hoạt Tiện ích Chrome (Khuyên dùng - 100% tự động):
+      </div>
+      <ol style="font-size:12.5px;color:#cbd5e1;padding-left:18px;margin:0;line-height:1.7">
+        <li>Mở trình duyệt Chrome, vào địa chỉ: <code style="background:#1e293b;padding:2px 6px;border-radius:4px;color:#38bdf8">chrome://extensions</code></li>
+        <li>Bật công tắc <b>"Chế độ dành cho nhà phát triển" (Developer mode)</b> ở góc trên bên phải.</li>
+        <li>Bấm nút <b>"Tải tiện ích đã giải nén" (Load unpacked)</b>.</li>
+        <li>Chọn thư mục: <code style="background:#1e293b;padding:2px 6px;border-radius:4px;color:#38bdf8">baohanh_realtime_extension</code> trong thư mục dự án của bạn.</li>
+      </ol>
+      <div style="margin-top:10px;font-size:12px;color:#34d399;font-weight:600">
+        ✅ Xong! Từ nay mỗi khi ServiceOS có thêm xe hoặc Dealer Portal có đề xuất mới, web của bạn sẽ tự động nhảy số tức thì!
+      </div>
+    </div>
+
+    <div style="text-align:right">
+      <button class="btn secondary" onclick="closeRealtimeModal()">Đóng</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

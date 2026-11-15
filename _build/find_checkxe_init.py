@@ -1,0 +1,9 @@
+import sys, re
+sys.stdout.reconfigure(encoding='utf-8')
+
+with open('_build/app_template2.html', 'r', encoding='utf-8') as f:
+    content = f.read()
+
+for m in re.finditer(r'checkXe\s*:', content):
+    print(content[m.start():m.start()+300])
+    print("="*40)

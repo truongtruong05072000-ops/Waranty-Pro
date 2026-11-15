@@ -1,0 +1,80 @@
+    state.checkXe.filterUnsubmitted = 'yes';
+    if (typeof renderCheckXe === 'function') renderCheckXe();
+  }
+};
+
+window.viewReturnedClaims = function(){
+  if (typeof window.switchTab === 'function') window.switchTab('claims');
+  if (state.filters) {
+    state.filters.returnStatus = 'all_returned';
+    if (typeof renderAll === 'function') renderAll();
+  }
+};
+
+function svgReturnRateGauge(rate, isOk, l1Cnt, l2Cnt, totalCnt) {
+  const maxScale = Math.max(3.0, Math.ceil(rate + 1.2));
+  const pinX = Math.min(380, Math.max(20, 20 + (rate / maxScale) * 360));
+  const benchX = 20 + (1.0 / maxScale) * 360;
+  const statusColor = isOk ? '#10b981' : '#ef4444';
+
+  return `
+    <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(56,189,248,0.2);border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,0.25)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:26px;font-weight:800;color:${statusColor}">${rate.toFixed(2)}%</span>
+          <span style="font-size:11.5px;padding:3px 10px;border-radius:9999px;font-weight:700;background:${isOk ? 'rgba(16,185,129,0.18)' : 'rgba(239,68,68,0.18)'};color:${isOk ? '#34d399' : '#fca5a5'};border:1px solid ${isOk ? 'rgba(16,185,129,0.4)' : 'rgba(239,68,68,0.4)'}">
+            ${isOk ? '✅ ĐẠT CHUẨN (≤ 1.0%)' : '⚠️ VƯỢT NGƯỠNG CHO PHÉP (> 1.0%)'}
+          </span>
+        </div>
+        <div style="font-size:12px;color:#94a3b8">
+          Mức trần VinFast cho phép: <b style="color:#f87171;font-size:13px">≤ 1.0%</b>
+        </div>
+      </div>
+
+      <!-- Sơ đồ thanh đo Benchmark SVG -->
+      <svg viewBox="0 0 400 68" style="width:100%;height:auto;display:block;margin:6px 0">
+        <!-- Vùng An toàn 0 -> 1% -->
+        <rect x="20" y="20" width="${benchX - 20}" height="14" rx="7" fill="rgba(16,185,129,0.35)" stroke="#10b981" stroke-width="1.5"/>
+        <!-- Vùng Vượt ngưỡng 1% -> max -->
+        <rect x="${benchX}" y="20" width="${380 - benchX}" height="14" rx="7" fill="rgba(239,68,68,0.22)" stroke="#ef4444" stroke-width="1.5"/>
+        
+        <!-- Vạch mức trần 1.0% -->
+        <line x1="${benchX}" y1="12" x2="${benchX}" y2="44" stroke="#ef4444" stroke-width="2.5" stroke-dasharray="3,3"/>
+        <text x="${benchX}" y="10" fill="#f87171" font-size="9" font-weight="700" text-anchor="middle">MỨC TRẦN 1.0%</text>
+
+        <!-- Điểm kim chỉ tỷ lệ thực tế -->
+        <circle cx="${pinX}" cy="27" r="7" fill="${statusColor}" stroke="#ffffff" stroke-width="2"/>
+        <text x="${pinX}" y="58" fill="${statusColor}" font-size="11" font-weight="800" text-anchor="middle">Thực tế: ${rate.toFixed(2)}%</text>
+      </svg>
+
+      <!-- Chi tiết Cấp 1 & Cấp 2 trả về -->
+      <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed rgba(255,255,255,0.1);text-align:center">
+        <div>
+          <div style="font-size:11px;color:#94a3b8">Cấp 1 trả về</div>
+          <div style="font-size:15px;font-weight:700;color:#fbbf24">${l1Cnt} ĐX</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:#94a3b8">Cấp 2 trả về</div>
+          <div style="font-size:15px;font-weight:700;color:#f87171">${l2Cnt} ĐX</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:#94a3b8">Tổng ĐX phát sinh</div>
+          <div style="font-size:15px;font-weight:700;color:#38bdf8">${totalCnt} ĐX</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+window.svgReturnRateGauge = svgReturnRateGauge;
+
+function newRecord(){
+  return { 
+    id: '', status: '', rawStatus: '', date: null, wo: '', vin: '', vehicle: '', 
+    customerName: '', customerCompanyName: '', customerGroup: null,
+    approvalSequence: null, returnLevel1Count: 0, returnLevel2Count: 0,
+    isReturnLevel1: false, isReturnLevel2: false, isReturned: false, returnLevelLabel: '', rejectReason: '',
+    total: 0, totalInc: 0, totalEx: 0, labor: 0, laborInc: 0, laborEx: 0, outsource: 0, parts: [], srcId: null, srcName: '', format: 0 
+  };
+}
+
+function parseFile1Sheet(rows, src){
