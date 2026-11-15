@@ -33,6 +33,50 @@ class DealerPortalAuth {
     }, CONFIG.DEALER_PORTAL.REFRESH_INTERVAL_MS);
   }
 
+  async login(username, password) {
+    const userToUse = (username || CONFIG.DEALER_PORTAL.USERNAME || '').trim();
+    const passToUse = password || CONFIG.DEALER_PORTAL.PASSWORD;
+
+    if (!userToUse || !passToUse) {
+      throw new Error('Vui lòng nhập tên đăng nhập và mật khẩu Dealer Portal!');
+    }
+
+    console.log(`[Dealer Portal Auth] Đang đăng nhập tài khoản "${userToUse}"...`);
+    const loginUrl = `${CONFIG.DEALER_PORTAL.BASE_URL}/api/auth/login`;
+    const res = await fetch(loginUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Origin': CONFIG.DEALER_PORTAL.PORTAL_WEB_URL,
+        'Referer': `${CONFIG.DEALER_PORTAL.PORTAL_WEB_URL}/`,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      body: JSON.stringify({ username: userToUse, password: passToUse })
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      const msg = errJson.message || errJson.error || `HTTP ${res.status}`;
+      throw new Error(`Đăng nhập Dealer Portal thất bại: ${msg}`);
+    }
+
+    const data = await res.json();
+    const accessToken = data.accessToken || data.token;
+    const refreshToken = data.refreshToken;
+    const user = data.user || null;
+
+    if (!accessToken) {
+      throw new Error('Đăng nhập thành công nhưng không tìm thấy token trong phản hồi!');
+    }
+
+    storage.setDealerPortalTokens(accessToken, refreshToken, user, 900);
+    this.invalidTokenReported = false;
+    this.initAutoRefresh();
+    console.log(`[Dealer Portal Auth] ✅ Đăng nhập Dealer Portal thành công! (User: ${user?.displayName || userToUse})`);
+    return { accessToken, refreshToken, user };
+  }
+
   async refreshToken(customRefreshToken = null) {
     if (this.isRefreshing) {
       return new Promise((resolve, reject) => {
@@ -56,6 +100,8 @@ class DealerPortalAuth {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'Cookie': `refreshToken=${tokenToUse}; refresh_token=${tokenToUse}`,
+          'x-market': 'VN',
           'Origin': CONFIG.DEALER_PORTAL.PORTAL_WEB_URL,
           'Referer': `${CONFIG.DEALER_PORTAL.PORTAL_WEB_URL}/`,
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -153,8 +199,14 @@ class DealerPortalAuth {
         await this.refreshToken();
         return true;
       } catch (err) {
+        if (tokenData.accessToken) {
+          return true;
+        }
         return false;
       }
+    }
+    if (tokenData && tokenData.accessToken) {
+      return true;
     }
     return false;
   }

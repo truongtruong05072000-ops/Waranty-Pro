@@ -95,8 +95,7 @@ export default {
     if (url.pathname === '/api/sync-dealer-portal' && request.method === 'POST') {
       try {
         const body = await request.json().catch(() => ({}));
-        const refreshToken = body.refreshToken || env?.DEALER_PORTAL_REFRESH_TOKEN;
-        return await handleNativeDealerPortalSync(refreshToken);
+        return await handleNativeDealerPortalSync(body);
       } catch (err) {
         return jsonRes({ success: false, ok: false, error: 'Lỗi đồng bộ Dealer Portal: ' + err.message }, 500);
       }
@@ -258,79 +257,132 @@ async function handleNativeServiceOsSync(username, password) {
 // ===================================================================
 // NATIVE DEALER PORTAL SYNC TRỰC TIẾP TRÊN CLOUDFLARE WORKER
 // ===================================================================
-async function handleNativeDealerPortalSync(refreshToken) {
-  if (!refreshToken) {
+async function handleNativeDealerPortalSync(bodyOrToken) {
+  let refreshToken = '';
+  let accessToken = '';
+  let username = '';
+  let password = '';
+
+  if (typeof bodyOrToken === 'string') {
+    refreshToken = bodyOrToken;
+  } else if (bodyOrToken && typeof bodyOrToken === 'object') {
+    username = bodyOrToken.username || '';
+    password = bodyOrToken.password || '';
+    refreshToken = bodyOrToken.refreshToken || bodyOrToken.tokenInput || '';
+    accessToken = bodyOrToken.accessToken || '';
+    if (bodyOrToken.tokenInput && bodyOrToken.tokenInput.trim().startsWith('{')) {
+      try {
+        const p = JSON.parse(bodyOrToken.tokenInput.trim());
+        accessToken = p.accessToken || accessToken;
+        refreshToken = p.refreshToken || refreshToken;
+      } catch(e){}
+    }
+  }
+
+  // 1. Đăng nhập bằng tài khoản Dealer Portal nếu có
+  if (username && password) {
+    try {
+      const loginRes = await fetch('https://dealer-portal-api.vinfast.com/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Origin': 'https://dealer-portal.vinfast.com',
+          'Referer': 'https://dealer-portal.vinfast.com/'
+        },
+        body: JSON.stringify({ username, password })
+      });
+      if (loginRes.ok) {
+        const loginData = await loginRes.json();
+        accessToken = loginData.accessToken || loginData.token;
+        refreshToken = loginData.refreshToken || refreshToken;
+      }
+    } catch(e){}
+  }
+
+  // 2. Làm mới Token qua Cookie nếu chưa có accessToken
+  if (!accessToken && refreshToken) {
+    try {
+      const refRes = await fetch('https://dealer-portal-api.vinfast.com/api/auth/refresh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Cookie': `refreshToken=${refreshToken}; refresh_token=${refreshToken}`,
+          'x-market': 'VN',
+          'Origin': 'https://dealer-portal.vinfast.com',
+          'Referer': 'https://dealer-portal.vinfast.com/'
+        },
+        body: JSON.stringify({ refreshToken })
+      });
+
+      if (refRes.ok) {
+        const tokenData = await refRes.json();
+        accessToken = tokenData.accessToken;
+        refreshToken = tokenData.refreshToken || refreshToken;
+      }
+    } catch(e){}
+  }
+
+  if (!accessToken) {
     return jsonRes({
       success: false,
       ok: false,
-      error: 'Vui lòng cung cấp Refresh Token của VinFast Dealer Portal!'
-    }, 400);
+      error: 'Không thể xác thực Dealer Portal! Vui lòng kiểm tra lại tài khoản/mật khẩu hoặc dán Token mới.'
+    }, 401);
   }
 
-  // 1. Refresh Token
-  const refRes = await fetch('https://dealer-portal-api.vinfast.com/api/auth/refresh', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Origin': 'https://dealer-portal.vinfast.com',
-      'Referer': 'https://dealer-portal.vinfast.com/'
-    },
-    body: JSON.stringify({ refreshToken })
-  });
-
-  if (!refRes.ok) {
-    return jsonRes({
-      success: false,
-      ok: false,
-      error: `Lỗi làm mới Token Dealer Portal (HTTP ${refRes.status}). Vui lòng cập nhật Refresh Token mới!`
-    }, refRes.status === 401 ? 401 : 502);
-  }
-
-  const tokenData = await refRes.json();
-  const accessToken = tokenData.accessToken;
-
-  // 2. Kéo danh sách Lệnh sửa chữa Dealer Portal
-  const woRes = await fetch('https://dealer-portal-api.vinfast.com/api/escooter-work-orders?dealerCode=N54511&pageSize=100', {
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Accept': 'application/json',
-      'Origin': 'https://dealer-portal.vinfast.com',
-      'Referer': 'https://dealer-portal.vinfast.com/'
+  // 3. Kéo danh sách Lệnh sửa chữa Dealer Portal (/api/escooter-work-orders)
+  let allOrders = [];
+  try {
+    for (let p = 1; p <= 3; p++) {
+      const woRes = await fetch(`https://dealer-portal-api.vinfast.com/api/escooter-work-orders?page=${p}&limit=100`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/json',
+          'Origin': 'https://dealer-portal.vinfast.com',
+          'Referer': 'https://dealer-portal.vinfast.com/'
+        }
+      });
+      if (!woRes.ok) break;
+      const woData = await woRes.json();
+      const rows = woData.data || woData.rows || [];
+      if (!rows.length) break;
+      allOrders.push(...rows);
+      if (allOrders.length >= (woData.total || 0) || rows.length < 100) break;
     }
-  });
+  } catch(e){}
 
-  let orders = [];
-  if (woRes.ok) {
-    const woData = await woRes.json();
-    orders = woData.data || woData.rows || [];
-  }
-
-  // 3. Kéo danh sách Đề xuất Bảo hành (Claims)
-  const claimsRes = await fetch('https://dealer-portal-api.vinfast.com/api/warranty-claims?dealerCode=N54511&pageSize=100', {
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Accept': 'application/json',
-      'Origin': 'https://dealer-portal.vinfast.com',
-      'Referer': 'https://dealer-portal.vinfast.com/'
+  // 4. Kéo danh sách Đề xuất Bảo hành (Claims) từ /api/warranty/claims
+  let allClaims = [];
+  try {
+    for (let p = 1; p <= 4; p++) {
+      const claimsRes = await fetch(`https://dealer-portal-api.vinfast.com/api/warranty/claims?page=${p}&limit=100`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/json',
+          'Origin': 'https://dealer-portal.vinfast.com',
+          'Referer': 'https://dealer-portal.vinfast.com/'
+        }
+      });
+      if (!claimsRes.ok) break;
+      const claimsData = await claimsRes.json();
+      const rows = claimsData.data || claimsData.rows || [];
+      if (!rows.length) break;
+      allClaims.push(...rows);
+      if (allClaims.length >= (claimsData.total || 0) || rows.length < 100) break;
     }
-  }).catch(() => null);
-
-  let claims = [];
-  if (claimsRes && claimsRes.ok) {
-    const claimsData = await claimsRes.json();
-    claims = claimsData.data || claimsData.rows || [];
-  }
+  } catch(e){}
 
   return jsonRes({
     success: true,
     ok: true,
     newAccessToken: accessToken,
-    newRefreshToken: tokenData.refreshToken || refreshToken,
-    count: orders.length,
-    totalClaims: claims.length,
-    orders: orders,
-    claims: claims
+    newRefreshToken: refreshToken,
+    count: allOrders.length,
+    totalClaims: allClaims.length,
+    orders: allOrders,
+    claims: allClaims
   });
 }
 '''

@@ -80,41 +80,79 @@ export async function handleApiRoute(req, res, pathname, query, body) {
 
     // 0.2 POST /api/sync-dealer-portal (Đồng bộ 1-Click Dealer Portal từ Frontend)
     if (req.method === 'POST' && pathname === '/api/sync-dealer-portal') {
-      const { refreshToken } = body || {};
-      if (refreshToken) {
-        dealerPortalAuth.updateTokens({ refreshToken });
+      const { username, password, refreshToken, accessToken, tokenInput, user } = body || {};
+
+      // 1. Nếu người dùng dán chuỗi token hoặc nguyên đoạn JSON
+      if (tokenInput && typeof tokenInput === 'string') {
+        const trimmed = tokenInput.trim();
+        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            dealerPortalAuth.updateTokens({
+              accessToken: parsed.accessToken,
+              refreshToken: parsed.refreshToken,
+              user: parsed.user,
+              expiresInSec: 900
+            });
+          } catch (e) {}
+        } else if (trimmed.startsWith('eyJ')) {
+          dealerPortalAuth.updateTokens({
+            refreshToken: trimmed,
+            accessToken: accessToken || trimmed
+          });
+        }
+      } else if (accessToken || refreshToken) {
+        dealerPortalAuth.updateTokens({
+          accessToken,
+          refreshToken,
+          user,
+          expiresInSec: 900
+        });
       }
 
-      // Đảm bảo có token hợp lệ
+      // 2. Nếu người dùng nhập tên tài khoản và mật khẩu Dealer Portal
+      if (username && password) {
+        try {
+          await dealerPortalAuth.login(username, password);
+        } catch (loginErr) {
+          console.warn('[Dealer Portal Auth] Login error:', loginErr.message);
+          // Nếu login bằng mật khẩu không thành công nhưng có accessToken trong cache thì vẫn tiếp tục
+          if (!dealerPortalAuth.getStatus().hasAccessToken) {
+            return jsonResponse(401, {
+              success: false,
+              ok: false,
+              error: loginErr.message
+            });
+          }
+        }
+      }
+
+      // 3. Đảm bảo có token hợp lệ
       const tokenValid = await dealerPortalAuth.ensureValidToken();
       if (!tokenValid) {
         return jsonResponse(401, {
           success: false,
           ok: false,
-          error: 'Token Dealer Portal chưa hợp lệ hoặc đã hết hạn! Vui lòng dán Refresh Token mới từ trang dealer-portal.vinfast.com vào ô nhập liệu.'
+          error: 'Chưa có thông tin đăng nhập hoặc Token Dealer Portal đã hết hạn! Vui lòng nhập tài khoản/mật khẩu hoặc dán Token mới.'
         });
       }
 
-      // Kích hoạt quét Stream B (đơn gần đây) và Stream A (đơn mở)
-      await Promise.allSettled([
-        dealerPortalSync.runStreamB(),
-        dealerPortalSync.runStreamA()
+      // 4. Kéo toàn diện cả Work Orders VÀ Warranty Claims (WC-...) từ Dealer Portal
+      const [woResult, claimsResult] = await Promise.allSettled([
+        dealerPortalSync.fetchAllWorkOrders(),
+        dealerPortalSync.fetchAllClaims()
       ]);
 
       const allRecords = smartMerger.getAllRecords();
-      const claims = [];
-      allRecords.forEach(r => {
-        if (Array.isArray(r.dealer_claims) && r.dealer_claims.length > 0) {
-          claims.push(...r.dealer_claims);
-        }
-      });
+      const allClaims = dealerPortalSync.getAllClaims();
 
       return jsonResponse(200, {
         success: true,
         ok: true,
         count: allRecords.length,
-        totalClaims: claims.length,
-        claims: claims,
+        totalOrders: woResult.status === 'fulfilled' ? woResult.value.length : 0,
+        totalClaims: allClaims.length,
+        claims: allClaims,
         orders: allRecords
       });
     }

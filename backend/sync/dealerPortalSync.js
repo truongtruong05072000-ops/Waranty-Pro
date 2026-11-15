@@ -81,16 +81,8 @@ export class DealerPortalSync extends EventEmitter {
       if (isNewOrChanged) {
         this.trackedOrders.set(dpOrder.id, dpOrder.updatedAt);
 
-        // Check if we need details (e.g. to inspect payment classification in labors/parts)
+        // Đã có sẵn warrantyPaymentAmount, customerPaymentAmount, customerRequest trong dpOrder
         let details = null;
-        const lastDetailUpdated = this.fetchedDetails.get(dpOrder.id);
-        if (lastDetailUpdated !== dpOrder.updatedAt) {
-          details = await this.fetchOrderDetail(dpOrder.id);
-          if (details) {
-            this.fetchedDetails.set(dpOrder.id, dpOrder.updatedAt);
-          }
-        }
-
         const mergedRecord = smartMerger.mergeDealerPortalOrder(dpOrder, details);
         if (mergedRecord) {
           updatedRecords.push(mergedRecord);
@@ -186,6 +178,70 @@ export class DealerPortalSync extends EventEmitter {
       this.stats.lastError = err.message;
       console.error(`[DealerPortalSync][Stream A] Error: ${err.message}`);
     }
+  }
+
+  async fetchAllClaims() {
+    try {
+      const pageSize = 100;
+      let allClaims = [];
+      let page = 1;
+
+      while (page <= 5) {
+        const url = `${CONFIG.DEALER_PORTAL.BASE_URL}/api/warranty/claims?page=${page}&limit=${pageSize}`;
+        const res = await dealerPortalAuth.fetchWithAuth(url);
+        if (!res.ok) break;
+
+        const json = await res.json();
+        const claims = json.data || json.rows || [];
+        if (!claims.length) break;
+
+        allClaims.push(...claims);
+        const total = json.total || allClaims.length;
+        if (allClaims.length >= total || claims.length < pageSize) break;
+        page++;
+      }
+
+      this.cachedClaims = allClaims;
+      console.log(`[DealerPortalSync] Đã nạp ${allClaims.length} đề xuất bảo hành (WC-...) từ Dealer Portal.`);
+      return allClaims;
+    } catch (err) {
+      console.error('[DealerPortalSync] Error fetching claims:', err.message);
+      return this.cachedClaims || [];
+    }
+  }
+
+  async fetchAllWorkOrders() {
+    try {
+      const pageSize = 100;
+      let allOrders = [];
+      let page = 1;
+
+      while (page <= 5) {
+        const url = `${CONFIG.DEALER_PORTAL.BASE_URL}/api/escooter-work-orders?page=${page}&limit=${pageSize}`;
+        const res = await dealerPortalAuth.fetchWithAuth(url);
+        if (!res.ok) break;
+
+        const json = await res.json();
+        const orders = json.data || json.rows || [];
+        if (!orders.length) break;
+
+        allOrders.push(...orders);
+        const total = json.total || allOrders.length;
+        if (allOrders.length >= total || orders.length < pageSize) break;
+        page++;
+      }
+
+      await this.processOrderList(allOrders);
+      console.log(`[DealerPortalSync] Đã nạp ${allOrders.length} lệnh sửa chữa từ Dealer Portal.`);
+      return allOrders;
+    } catch (err) {
+      console.error('[DealerPortalSync] Error fetching all work orders:', err.message);
+      return [];
+    }
+  }
+
+  getAllClaims() {
+    return this.cachedClaims || [];
   }
 
   getStats() {

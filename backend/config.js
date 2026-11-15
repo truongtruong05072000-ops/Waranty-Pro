@@ -51,6 +51,8 @@ export const CONFIG = {
   DEALER_PORTAL: {
     BASE_URL: process.env.DEALER_PORTAL_BASE_URL || 'https://dealer-portal-api.vinfast.com',
     PORTAL_WEB_URL: 'https://dealer-portal.vinfast.com',
+    USERNAME: process.env.DEALER_PORTAL_USERNAME || '0704543581',
+    PASSWORD: process.env.DEALER_PORTAL_PASSWORD || '',
     REFRESH_TOKEN: process.env.DEALER_PORTAL_REFRESH_TOKEN || '',
     ACCESS_TOKEN: process.env.DEALER_PORTAL_ACCESS_TOKEN || '',
     STREAM_A_INTERVAL_MS: parseInt(process.env.DP_STREAM_A_INTERVAL_MS || '35000', 10), // 35 giây quét full lệnh mở
