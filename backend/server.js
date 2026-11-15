@@ -58,15 +58,24 @@ const server = http.createServer(async (req, res) => {
 
   // 2. API Routes
   if (pathname.startsWith('/api/') || pathname === '/health') {
-    const body = (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH')
-      ? await parseBody(req)
-      : null;
-    const handled = await handleApiRoute(req, res, pathname, parsedUrl.searchParams, body);
-    if (handled) return;
+    try {
+      const body = (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH')
+        ? await parseBody(req)
+        : null;
+      const handled = await handleApiRoute(req, res, pathname, parsedUrl.searchParams, body);
+      if (handled) return;
 
-    res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ ok: false, message: 'API route not found' }));
-    return;
+      res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: false, message: 'API route not found' }));
+      return;
+    } catch (apiErr) {
+      console.error('[Server API Error]', apiErr);
+      if (!res.headersSent) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ ok: false, success: false, error: apiErr.message }));
+      }
+      return;
+    }
   }
 
   // 3. Static File Serving

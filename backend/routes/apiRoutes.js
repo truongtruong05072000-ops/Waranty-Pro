@@ -157,6 +157,21 @@ export async function handleApiRoute(req, res, pathname, query, body) {
       });
     }
 
+    // 0.25 GET /api/warranty/claims (Lấy toàn bộ danh sách đề xuất bảo hành đã làm giàu)
+    if (req.method === 'GET' && (pathname === '/api/warranty/claims' || pathname === '/api/claims')) {
+      let claims = dealerPortalSync.getAllClaims();
+      if (!claims || !claims.length) {
+        const cachePath = path.join(CONFIG.PATHS.ROOT, '.claims-cache.json');
+        if (fs.existsSync(cachePath)) {
+          try {
+            const raw = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
+            claims = Object.values(raw);
+          } catch (e) {}
+        }
+      }
+      return jsonResponse(200, { ok: true, success: true, count: (claims || []).length, data: claims || [] });
+    }
+
     // 0.3 POST /api/sync/all (Đồng bộ đồng thời cả ServiceOS và Dealer Portal)
     if (req.method === 'POST' && (pathname === '/api/sync/all' || pathname === '/api/sync-all')) {
       const summary = await syncEngine.triggerManualSync();

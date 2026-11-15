@@ -1,4 +1,6 @@
 // backend/sync/dealerPortalSync.js
+import fs from 'fs';
+import path from 'path';
 import { EventEmitter } from 'events';
 import { CONFIG } from '../config.js';
 import { dealerPortalAuth } from '../auth/dealerPortalAuth.js';
@@ -10,11 +12,24 @@ export class DealerPortalSync extends EventEmitter {
     this.streamATimer = null;
     this.streamBTimer = null;
     this.isRunning = false;
+    this.cachedClaims = [];
     
     // RAM cache of tracked orders: id -> updatedAt
     this.trackedOrders = new Map();
     // Cache for detail fetching to avoid redundant calls: id -> updatedAt
     this.fetchedDetails = new Map();
+
+    // Nạp sẵn toàn bộ danh sách đề xuất bảo hành từ .claims-cache.json nếu có
+    try {
+      const cachePath = path.join(CONFIG.PATHS.ROOT, '.claims-cache.json');
+      if (fs.existsSync(cachePath)) {
+        const raw = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
+        this.cachedClaims = Object.values(raw);
+        console.log(`[DealerPortalSync] ⚡ Đã nạp sẵn ${this.cachedClaims.length} đề xuất bảo hành chi tiết từ .claims-cache.json vào bộ nhớ.`);
+      }
+    } catch (e) {
+      console.warn('[DealerPortalSync] Lỗi đọc .claims-cache.json:', e.message);
+    }
 
     this.stats = {
       streamALastRun: null,
@@ -201,13 +216,77 @@ export class DealerPortalSync extends EventEmitter {
         page++;
       }
 
-      this.cachedClaims = allClaims;
-      console.log(`[DealerPortalSync] Đã nạp ${allClaims.length} đề xuất bảo hành (WC-...) từ Dealer Portal.`);
-      return allClaims;
+      // Làm giàu chi tiết phụ tùng, tiền công và lịch sử duyệt cho các đề xuất
+      const enrichedClaims = await this.enrichClaimsDetails(allClaims);
+      this.cachedClaims = enrichedClaims;
+      console.log(`[DealerPortalSync] Đã nạp & làm giàu chi tiết ${enrichedClaims.length} đề xuất bảo hành (WC-...) từ Dealer Portal.`);
+      return enrichedClaims;
     } catch (err) {
       console.error('[DealerPortalSync] Error fetching claims:', err.message);
       return this.cachedClaims || [];
     }
+  }
+
+  async enrichClaimsDetails(claims) {
+    if (!Array.isArray(claims) || !claims.length) return claims;
+
+    const cachePath = path.join(CONFIG.PATHS.ROOT, '.claims-cache.json');
+    let detailCache = {};
+    try {
+      if (fs.existsSync(cachePath)) {
+        detailCache = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
+      }
+    } catch (e) {}
+
+    let needSave = false;
+    const missing = claims.filter(c => c.id && (!detailCache[c.id] || !detailCache[c.id].partLineItems || (c.status !== 'APPROVED' && c.status !== 'CANCELLED')));
+
+    const BATCH_SIZE = 25;
+    for (let i = 0; i < missing.length; i += BATCH_SIZE) {
+      const batch = missing.slice(i, i + BATCH_SIZE);
+      await Promise.all(batch.map(async (c) => {
+        try {
+          const res = await dealerPortalAuth.fetchWithAuth(`${CONFIG.DEALER_PORTAL.BASE_URL}/api/warranty/claims/${c.id}`);
+          if (res.ok) {
+            const dt = await res.json();
+            detailCache[c.id] = dt;
+            needSave = true;
+          }
+        } catch (err) {}
+      }));
+    }
+
+    if (needSave) {
+      try {
+        fs.writeFileSync(cachePath, JSON.stringify(detailCache), 'utf-8');
+      } catch (e) {}
+    }
+
+    return claims.map(c => {
+      const dt = detailCache[c.id] || {};
+      const hist = dt.approvalHistory || c.approvalHistory || [];
+      const l1Ret = hist.filter(h => String(h.action || '').includes('L1_RETURN') || String(h.action || '').includes('L1_REJECT')).length;
+      const l2Ret = hist.filter(h => String(h.action || '').includes('L2_RETURN') || String(h.action || '').includes('L2_REJECT')).length;
+      const isRet = (l1Ret > 0 || l2Ret > 0) && c.status !== 'CANCELLED';
+
+      return {
+        ...c,
+        ...dt,
+        partLineItems: dt.partLineItems || c.partLineItems || [],
+        workOrderLineItems: dt.workOrderLineItems || c.workOrderLineItems || [],
+        requestedPartsAmountInclTax: dt.requestedPartsAmountInclTax != null ? dt.requestedPartsAmountInclTax : c.requestedPartsAmountInclTax,
+        requestedPartsAmountExclTax: dt.requestedPartsAmountExclTax != null ? dt.requestedPartsAmountExclTax : c.requestedPartsAmountExclTax,
+        requestedLaborAmountInclTax: dt.requestedLaborAmountInclTax != null ? dt.requestedLaborAmountInclTax : c.requestedLaborAmountInclTax,
+        requestedLaborAmountExclTax: dt.requestedLaborAmountExclTax != null ? dt.requestedLaborAmountExclTax : c.requestedLaborAmountExclTax,
+        totalRequestedAmountInclTax: dt.totalRequestedAmountInclTax || c.totalRequestedAmountInclTax,
+        totalRequestedAmountExclTax: dt.totalRequestedAmountExclTax || c.totalRequestedAmountExclTax,
+        approvalHistory: hist,
+        returnLevel1Count: l1Ret,
+        returnLevel2Count: l2Ret,
+        isReturned: isRet,
+        isCancelled: c.status === 'CANCELLED'
+      };
+    });
   }
 
   async fetchAllWorkOrders() {
