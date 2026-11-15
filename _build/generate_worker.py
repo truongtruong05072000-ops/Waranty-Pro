@@ -40,7 +40,7 @@ const DEFAULT_DEALER_CODE = "N54511";
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    const backendBase = (env && env.BACKEND_URL) ? env.BACKEND_URL.replace(/\\/+$/, '') : '';
+    const backendBase = ((env && env.BACKEND_URL) ? env.BACKEND_URL : DEFAULT_BACKEND_URL).replace(/\\/+$/, '');
 
     // 1. CORS Preflight
     if (request.method === 'OPTIONS') {
@@ -78,30 +78,7 @@ export default {
       });
     }
 
-    // 4. Native ServiceOS Sync API: POST /api/sync-serviceos
-    if (url.pathname === '/api/sync-serviceos' && request.method === 'POST') {
-      try {
-        const body = await request.json().catch(() => ({}));
-        const username = (body.username || env?.SERVICEOS_USERNAME || DEFAULT_SERVICEOS_USER).trim();
-        const password = body.password || env?.SERVICEOS_PASSWORD || DEFAULT_SERVICEOS_PASS;
-
-        return await handleNativeServiceOsSync(username, password);
-      } catch (err) {
-        return jsonRes({ success: false, ok: false, error: 'Lỗi đồng bộ ServiceOS: ' + err.message }, 500);
-      }
-    }
-
-    // 5. Native Dealer Portal Sync API: POST /api/sync-dealer-portal
-    if (url.pathname === '/api/sync-dealer-portal' && request.method === 'POST') {
-      try {
-        const body = await request.json().catch(() => ({}));
-        return await handleNativeDealerPortalSync(body);
-      } catch (err) {
-        return jsonRes({ success: false, ok: false, error: 'Lỗi đồng bộ Dealer Portal: ' + err.message }, 500);
-      }
-    }
-
-    // 6. Chuyển tiếp các API khác sang Backend Real-time nếu được cấu hình
+    // 4. Ưu tiên chuyển tiếp toàn bộ /api/* và /ws sang Backend Real-time (Render)
     if (backendBase && (url.pathname.startsWith('/api/') || url.pathname.startsWith('/ws'))) {
       const targetApiUrl = new URL(url.pathname + url.search, backendBase);
       const fwdHeaders = new Headers(request.headers);
@@ -115,22 +92,42 @@ export default {
           body: (request.method !== 'GET' && request.method !== 'HEAD') ? request.body : undefined
         });
 
-        const resHeaders = new Headers(response.headers);
-        resHeaders.set('Access-Control-Allow-Origin', '*');
-        resHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-        resHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie');
+        if (response.ok || (response.status !== 502 && response.status !== 503 && response.status !== 504)) {
+          const resHeaders = new Headers(response.headers);
+          resHeaders.set('Access-Control-Allow-Origin', '*');
+          resHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+          resHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie');
 
-        return new Response(response.body, {
-          status: response.status,
-          headers: resHeaders
-        });
+          return new Response(response.body, {
+            status: response.status,
+            headers: resHeaders
+          });
+        }
       } catch (err) {
-        // Nếu backend lỗi, báo lỗi thân thiện
-        return jsonRes({
-          ok: false,
-          error: 'Backend proxy error: ' + err.message,
-          hint: 'Hệ thống đang chạy chế độ dự phòng trực tiếp trên Cloudflare.'
-        }, 502);
+        // Fallback tự động xuống bộ máy Native bên dưới nếu Render đang sleep
+      }
+    }
+
+    // 5. Native Fallback ServiceOS Sync API: POST /api/sync-serviceos
+    if (url.pathname === '/api/sync-serviceos' && request.method === 'POST') {
+      try {
+        const body = await request.json().catch(() => ({}));
+        const username = (body.username || env?.SERVICEOS_USERNAME || DEFAULT_SERVICEOS_USER).trim();
+        const password = body.password || env?.SERVICEOS_PASSWORD || DEFAULT_SERVICEOS_PASS;
+
+        return await handleNativeServiceOsSync(username, password);
+      } catch (err) {
+        return jsonRes({ success: false, ok: false, error: 'Lỗi đồng bộ ServiceOS: ' + err.message }, 500);
+      }
+    }
+
+    // 6. Native Fallback Dealer Portal Sync API: POST /api/sync-dealer-portal
+    if (url.pathname === '/api/sync-dealer-portal' && request.method === 'POST') {
+      try {
+        const body = await request.json().catch(() => ({}));
+        return await handleNativeDealerPortalSync(body);
+      } catch (err) {
+        return jsonRes({ success: false, ok: false, error: 'Lỗi đồng bộ Dealer Portal: ' + err.message }, 500);
       }
     }
 

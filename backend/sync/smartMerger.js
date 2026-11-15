@@ -155,20 +155,10 @@ export class SmartMerger {
       }
     }
 
-    // Nếu chưa có trong ServiceOS, tạo mới bản ghi khởi điểm từ Dealer Portal
+    // Nếu xe chưa có trong ServiceOS (không nằm trong 636 xe đang có trong xưởng), 
+    // TUYỆT ĐỐI KHÔNG TẠO MỚI xe phantom để giữ đúng số lượng xe thực tế của xưởng!
     if (!target) {
-      matchedKey = vin || woNum || `dp_${dpOrder.id}`;
-      target = {
-        vin: vin || '—',
-        plate: dpOrder.licensePlate || '—',
-        normPlate: plateNorm,
-        model: dpOrder.modelName || dpOrder.model || '—',
-        customer_name: dpOrder.customerName || '—',
-        source: dpOrder.isGsm ? 'gsm' : 'retail',
-        fleet: dpOrder.isGsm ? 'gsm' : 'retail',
-        status: dpOrder.status || 'Trong xưởng',
-        faults: []
-      };
+      return null;
     }
 
     // PHÂN LOẠI 2 LỆNH SONG SONG CHO CÙNG 1 SỐ VIN:

@@ -2476,34 +2476,58 @@ function isSettledOrHigher(st, raw) {
 window.isSettledOrHigher = isSettledOrHigher;
 
 function evaluateCheckStatus(hasLoi, hasKtvNote, hasBangCapNhat){
-  // QUY TẮC MỚI THEO YÊU CẦU NGƯỜI DÙNG:
-  // "xe không lỗi thì tính là trạng thái check là xe không lỗi"
-  if(!hasLoi){
+  // 1. Những xe không lỗi thì không cần thêm bảng cập nhật
+  if(!hasLoi && !hasBangCapNhat){
     return { 
       code: 'no_fault', 
       label: '✅ Xe không lỗi', 
       badgeClass: 'no_fault', 
-      desc: 'Xe bình thường, không có hạng mục lỗi' 
+      desc: 'Xe không lỗi, không cần thêm bảng cập nhật' 
     };
   }
 
-  // Nếu CÓ LỖI:
-  // 1. Có lỗi + có bảng cập nhật phía dưới (hoặc đã có ghi chú KTV hoàn tất) -> Đã check
-  if(hasBangCapNhat || hasKtvNote){
+  // 2. Những xe cần check lại là những xe không có hạng mục lỗi, không có ghi chú KTV nhưng có bảng cập nhật
+  // (hoặc xe có lỗi & có bảng cập nhật nhưng KTV chưa để lại ghi chú xác nhận)
+  if((!hasLoi && !hasKtvNote && hasBangCapNhat) || (hasLoi && hasBangCapNhat && !hasKtvNote)){
+    return { 
+      code: 'recheck', 
+      label: '⚠️ Cần check lại', 
+      badgeClass: 'recheck', 
+      desc: !hasLoi 
+        ? 'Không có hạng mục lỗi, không có ghi chú KTV nhưng có bảng cập nhật' 
+        : 'Có hạng mục lỗi & bảng cập nhật nhưng thiếu ghi chú KTV'
+    };
+  }
+
+  // 3. Những xe chưa check là những xe có hạng mục lỗi nhưng không có bảng cập nhật và ghi chú KTV
+  if(hasLoi && !hasBangCapNhat && !hasKtvNote){
+    return { 
+      code: 'unchecked', 
+      label: '🔴 Chưa check', 
+      badgeClass: 'unchecked', 
+      desc: 'Có hạng mục lỗi nhưng không có bảng cập nhật và ghi chú KTV' 
+    };
+  }
+
+  // 4. Những xe đã check là những xe:
+  // - Có hạng mục lỗi, có bảng cập nhật và có ghi chú KTV
+  // - Hoặc có bảng cập nhật và có ghi chú KTV
+  // - Hoặc có hạng mục lỗi và có ghi chú KTV
+  if((hasLoi && hasBangCapNhat && hasKtvNote) || (hasBangCapNhat && hasKtvNote) || (hasLoi && hasKtvNote)){
     return { 
       code: 'checked', 
       label: '✅ Đã check', 
       badgeClass: 'checked', 
-      desc: hasBangCapNhat ? 'Đã cập nhật bảng linh kiện/PIN/Động cơ' : 'Đã có ghi chú kiểm tra KTV' 
+      desc: 'Đã hoàn tất kiểm tra và ghi chú KTV' 
     };
   }
 
-  // 2. Có lỗi nhưng CHƯA có ghi chú KTV VÀ CHƯA có bảng cập nhật -> Mặc định Chưa check
+  // Mặc định an toàn
   return { 
     code: 'unchecked', 
     label: '🔴 Chưa check', 
     badgeClass: 'unchecked', 
-    desc: 'Có lỗi nhưng chưa kiểm tra & chưa cập nhật bảng linh kiện' 
+    desc: 'Cần kiểm tra xe' 
   };
 }
 
@@ -3268,9 +3292,9 @@ function normalizeOrder(raw, i){
     { source: d.source, fleet: d.fleet, note: d.advisor_note || d.foreman_note || d.symptoms }
   );
 
-  // Chuẩn hóa ngày nhận xe
-  const rawDate = d.dateStr || d.received_at || d.created_at || new Date().toISOString().slice(0, 10);
-  const isoDate = formatIsoDate(rawDate) || new Date().toISOString().slice(0, 10);
+  // Chuẩn hóa ngày nhận xe: ƯU TIÊN 100% NGÀY TIẾP NHẬN CỦA XE (received_at / reception_date)
+  const rawDate = d.received_at || d.reception_date || d.ngay_tiep_nhan || d.dateStr || d.created_at || '';
+  const isoDate = formatIsoDate(rawDate) || (d.dateStr ? formatIsoDate(d.dateStr) : '') || new Date().toISOString().slice(0, 10);
   const dispDate = formatDisplayDate(isoDate);
 
   const order = {
@@ -6199,7 +6223,7 @@ function getConsoleSnippetCode(targetUrl){
     warranty_kinds:w.warranty_kinds||[],
     warranty_extra:w.warranty_extra||{},
     dealer_claims:w.dealer_claims||[],
-    dateStr:(w.received_at||w.created_at||'').slice(0,10)||new Date().toISOString().slice(0,10)
+    dateStr:(w.received_at||w.reception_date||w.ngay_tiep_nhan||w.created_at||'').slice(0,10)||new Date().toISOString().slice(0,10)
   }));
 
   const json=JSON.stringify(orders);
@@ -6337,7 +6361,7 @@ function getUserscriptCode(targetUrl){
           warranty_kinds: w.warranty_kinds || [],
           warranty_extra: w.warranty_extra || {},
           dealer_claims: w.dealer_claims || [],
-          dateStr: (w.received_at || w.created_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10)
+          dateStr: (w.received_at || w.reception_date || w.ngay_tiep_nhan || w.created_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10)
         }));
 
         const json = JSON.stringify(orders);
@@ -6768,9 +6792,26 @@ function computeAll(){
 
   // monthly aggregation
   const months = new Map();
-  const touch = ym => { if(!months.has(ym)) months.set(ym, { conf: 0, cnt: 0, pipe: 0, pCnt: 0, labor: 0, partsMoney: 0 }); return months.get(ym); };
-  for(const r of confirmed){ const o = touch(r.cm); o.conf += r.total; o.cnt++; o.labor += r.labor; for(const p of r.parts) o.partsMoney += p.money; }
-  for(const r of pipeline){ const o = touch(r.cm); o.pipe += r.total; o.pCnt++; }
+  const touch = ym => { 
+    if(!months.has(ym)) months.set(ym, { conf: 0, confInc: 0, confEx: 0, cnt: 0, pipe: 0, pipeInc: 0, pipeEx: 0, pCnt: 0, labor: 0, partsMoney: 0 }); 
+    return months.get(ym); 
+  };
+  for(const r of confirmed){ 
+    const o = touch(r.cm); 
+    o.conf += r.total; 
+    o.confInc += (r.totalInc ?? r.total);
+    o.confEx += (r.totalEx ?? (r.totalInc ? Math.round(r.totalInc / 1.1) : r.total));
+    o.cnt++; 
+    o.labor += r.labor; 
+    for(const p of r.parts) o.partsMoney += p.money; 
+  }
+  for(const r of pipeline){ 
+    const o = touch(r.cm); 
+    o.pipe += r.total; 
+    o.pipeInc += (r.totalInc ?? r.total);
+    o.pipeEx += (r.totalEx ?? (r.totalInc ? Math.round(r.totalInc / 1.1) : r.total));
+    o.pCnt++; 
+  }
 
   // ĐÃ LÀM trong tháng kế hoạch
   const doneAgg = new Map();
@@ -7159,7 +7200,7 @@ function renderAll(){
         </div>
         <div class="kpi-val">${fmtT(C.expectedPlan)} <span style="font-size:16px">tr</span></div>
         <div class="kpi-sub">
-          Chốt <b>${fmtT(C.target.conf)}</b> + Dự trù <b>${fmtT(C.target.pipe)}</b>${C.coveredParts ? ` + Chuẩn bị <b>${fmtT(C.coveredParts)}</b>` : ''}
+          Chốt sau thuế <b>${fmtT(C.target.confInc || C.target.conf)} tr</b> (Trước VAT: <b>${fmtT(C.target.confEx || Math.round(C.target.conf / 1.1))} tr</b>) · Dự trù <b>${fmtT(C.target.pipe)} tr</b>${C.coveredParts ? ` · Chuẩn bị <b>${fmtT(C.coveredParts)} tr</b>` : ''}
         </div>
         <div class="kpi-progress-track">
           <div class="kpi-progress-fill" style="width:${targetPct}%;background:${isReached ? 'linear-gradient(90deg, #059669, #10b981)' : 'linear-gradient(90deg, #d97706, #f59e0b)'}"></div>
@@ -7222,7 +7263,10 @@ function renderAll(){
           <div style="font-size:11.5px;color:var(--text-muted);font-weight:normal">${cycleRangeText(m, cutTxt)}</div>
         </td>
         <td class="num">${o.cnt || '0'}</td>
-        <td class="num"><b>${fmtVND(o.conf)}</b></td>
+        <td class="num">
+          <div style="font-weight:700">${fmtVND(o.confInc || o.conf)}</div>
+          <div style="font-size:11px;color:var(--text-muted)">Trước VAT: ${fmtVND(o.confEx || Math.round(o.conf / 1.1))}</div>
+        </td>
         <td class="num" style="color:#d97706">${o.pCnt ? `${o.pCnt} ĐX · ` : ''}${fmtVND(o.pipe)}</td>
         <td class="num"><b style="color:var(--primary)">${fmtVND(exp)}</b></td>
         <td class="num" style="color:${d >= 0 ? 'var(--emerald)' : 'var(--rose)'}">${d >= 0 ? '+' : ''}${fmtVND(d)}</td>
@@ -8381,40 +8425,34 @@ window.__handleFiles = handleFiles;
       <div style="background:linear-gradient(135deg, rgba(124,58,237,0.14), rgba(15,23,42,0.85));border:1.5px solid #7c3aed;border-radius:var(--radius-md);padding:16px;margin-bottom:14px;box-shadow:0 4px 20px rgba(124,58,237,0.2)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
           <span style="font-size:14px;font-weight:700;color:#c084fc;display:flex;align-items:center;gap:6px">
-            💼 Đăng nhập & Tự động đồng bộ VinFast Dealer Portal
+            💼 Tự động đồng bộ VinFast Dealer Portal (Xác thực OTP)
           </span>
           <span style="font-size:11px;background:#7c3aed;color:#fff;padding:2px 8px;border-radius:10px;font-weight:600">Đại lý: N54511</span>
         </div>
-        <p style="font-size:12.5px;color:var(--text-muted);margin-bottom:14px;line-height:1.5">
-          Nhập tài khoản Dealer Portal của bạn (hoặc hệ thống tự dùng token đã lưu). Hệ thống sẽ tự động đồng bộ trọn vẹn danh sách Đề xuất Bảo hành (WC-...) và Lệnh sửa chữa.
+        <p style="font-size:12.5px;color:var(--text-muted);margin-bottom:12px;line-height:1.5">
+          VinFast Dealer Portal đăng nhập bằng <b>Số điện thoại (0704543581)</b> và <b>xác thực OTP</b> qua SMS (không dùng mật khẩu). Hệ thống Backend tự động duy trì và tự động làm mới Refresh Token mỗi 12 phút 24/7.
         </p>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-          <div>
-            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--text-main)">Tên đăng nhập Dealer Portal:</label>
-            <input type="text" id="dealerPortalApiUser" placeholder="vd: 0704543581" value="0704543581" style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:6px;border:1px solid rgba(192,132,252,0.3);background:rgba(15,23,42,0.85);color:#fff;font-size:13px;outline:none" autocomplete="username">
-          </div>
-          <div>
-            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--text-main)">Mật khẩu Dealer Portal:</label>
-            <input type="password" id="dealerPortalApiPass" placeholder="Nhập mật khẩu (nếu chưa lưu token)" style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:6px;border:1px solid rgba(192,132,252,0.3);background:rgba(15,23,42,0.85);color:#fff;font-size:13px;outline:none" autocomplete="current-password">
-          </div>
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--text-main)">Số điện thoại tài khoản:</label>
+          <input type="text" id="dealerPortalApiUser" value="0704543581" readonly style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:6px;border:1px solid rgba(192,132,252,0.3);background:rgba(15,23,42,0.85);color:#cbd5e1;font-size:13px;outline:none">
         </div>
 
         <div style="margin-bottom:12px">
           <label style="display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:4px">
-            Hoặc dán Token / chuỗi JSON Dealer Portal (tùy chọn):
+            Dán Token / chuỗi JSON Dealer Portal từ F12 (hoặc để trống để dùng Token hệ thống đang lưu):
           </label>
-          <input type="password" id="dealerPortalRefreshTokenInput" placeholder="Dán Token hoặc đoạn JSON (accessToken, refreshToken) nếu có..." style="width:100%;box-sizing:border-box;padding:6px 12px;border-radius:6px;border:1px solid rgba(192,132,252,0.2);background:rgba(15,23,42,0.7);color:#e2e8f0;font-size:12px;outline:none">
+          <input type="password" id="dealerPortalRefreshTokenInput" placeholder="Dán chuỗi Token (eyJ...) hoặc cả đoạn JSON F12..." style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:6px;border:1px solid rgba(192,132,252,0.25);background:rgba(15,23,42,0.7);color:#e2e8f0;font-size:12px;outline:none">
         </div>
 
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
           <input type="checkbox" id="dealerPortalRemember" checked style="accent-color:#7c3aed;cursor:pointer">
-          <label for="dealerPortalRemember" style="font-size:12px;color:var(--text-muted);cursor:pointer">Ghi nhớ tài khoản trên máy này</label>
+          <label for="dealerPortalRemember" style="font-size:12px;color:var(--text-muted);cursor:pointer">Tự động lưu và gia hạn Token liên tục trên hệ thống</label>
         </div>
 
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <button class="btn primary" id="btnSyncDealerPortalApi" onclick="syncDealerPortalViaApi()" style="padding:10px 18px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;box-shadow:0 4px 14px rgba(124,58,237,0.4);cursor:pointer">
-            💼 ĐĂNG NHẬP & ĐỒNG BỘ DEALER PORTAL
+            ⚡ ĐỒNG BỘ DEALER PORTAL (DÙNG TOKEN SẴN CÓ)
           </button>
           <button class="btn secondary" onclick="importDealerPortalClipboard()" style="padding:10px 14px;font-size:12.5px">
             📋 Dán JSON từ F12 (Ctrl+V)
@@ -9838,34 +9876,58 @@ function isSettledOrHigher(st, raw) {
 window.isSettledOrHigher = isSettledOrHigher;
 
 function evaluateCheckStatus(hasLoi, hasKtvNote, hasBangCapNhat){
-  // QUY TẮC MỚI THEO YÊU CẦU NGƯỜI DÙNG:
-  // "xe không lỗi thì tính là trạng thái check là xe không lỗi"
-  if(!hasLoi){
+  // 1. Những xe không lỗi thì không cần thêm bảng cập nhật
+  if(!hasLoi && !hasBangCapNhat){
     return { 
       code: 'no_fault', 
       label: '✅ Xe không lỗi', 
       badgeClass: 'no_fault', 
-      desc: 'Xe bình thường, không có hạng mục lỗi' 
+      desc: 'Xe không lỗi, không cần thêm bảng cập nhật' 
     };
   }
 
-  // Nếu CÓ LỖI:
-  // 1. Có lỗi + có bảng cập nhật phía dưới (hoặc đã có ghi chú KTV hoàn tất) -> Đã check
-  if(hasBangCapNhat || hasKtvNote){
+  // 2. Những xe cần check lại là những xe không có hạng mục lỗi, không có ghi chú KTV nhưng có bảng cập nhật
+  // (hoặc xe có lỗi & có bảng cập nhật nhưng KTV chưa để lại ghi chú xác nhận)
+  if((!hasLoi && !hasKtvNote && hasBangCapNhat) || (hasLoi && hasBangCapNhat && !hasKtvNote)){
+    return { 
+      code: 'recheck', 
+      label: '⚠️ Cần check lại', 
+      badgeClass: 'recheck', 
+      desc: !hasLoi 
+        ? 'Không có hạng mục lỗi, không có ghi chú KTV nhưng có bảng cập nhật' 
+        : 'Có hạng mục lỗi & bảng cập nhật nhưng thiếu ghi chú KTV'
+    };
+  }
+
+  // 3. Những xe chưa check là những xe có hạng mục lỗi nhưng không có bảng cập nhật và ghi chú KTV
+  if(hasLoi && !hasBangCapNhat && !hasKtvNote){
+    return { 
+      code: 'unchecked', 
+      label: '🔴 Chưa check', 
+      badgeClass: 'unchecked', 
+      desc: 'Có hạng mục lỗi nhưng không có bảng cập nhật và ghi chú KTV' 
+    };
+  }
+
+  // 4. Những xe đã check là những xe:
+  // - Có hạng mục lỗi, có bảng cập nhật và có ghi chú KTV
+  // - Hoặc có bảng cập nhật và có ghi chú KTV
+  // - Hoặc có hạng mục lỗi và có ghi chú KTV
+  if((hasLoi && hasBangCapNhat && hasKtvNote) || (hasBangCapNhat && hasKtvNote) || (hasLoi && hasKtvNote)){
     return { 
       code: 'checked', 
       label: '✅ Đã check', 
       badgeClass: 'checked', 
-      desc: hasBangCapNhat ? 'Đã cập nhật bảng linh kiện/PIN/Động cơ' : 'Đã có ghi chú kiểm tra KTV' 
+      desc: 'Đã hoàn tất kiểm tra và ghi chú KTV' 
     };
   }
 
-  // 2. Có lỗi nhưng CHƯA có ghi chú KTV VÀ CHƯA có bảng cập nhật -> Mặc định Chưa check
+  // Mặc định an toàn
   return { 
     code: 'unchecked', 
     label: '🔴 Chưa check', 
     badgeClass: 'unchecked', 
-    desc: 'Có lỗi nhưng chưa kiểm tra & chưa cập nhật bảng linh kiện' 
+    desc: 'Cần kiểm tra xe' 
   };
 }
 
@@ -10630,9 +10692,9 @@ function normalizeOrder(raw, i){
     { source: d.source, fleet: d.fleet, note: d.advisor_note || d.foreman_note || d.symptoms }
   );
 
-  // Chuẩn hóa ngày nhận xe
-  const rawDate = d.dateStr || d.received_at || d.created_at || new Date().toISOString().slice(0, 10);
-  const isoDate = formatIsoDate(rawDate) || new Date().toISOString().slice(0, 10);
+  // Chuẩn hóa ngày nhận xe: ƯU TIÊN 100% NGÀY TIẾP NHẬN CỦA XE (received_at / reception_date)
+  const rawDate = d.received_at || d.reception_date || d.ngay_tiep_nhan || d.dateStr || d.created_at || '';
+  const isoDate = formatIsoDate(rawDate) || (d.dateStr ? formatIsoDate(d.dateStr) : '') || new Date().toISOString().slice(0, 10);
   const dispDate = formatDisplayDate(isoDate);
 
   const order = {
@@ -13561,7 +13623,7 @@ function getConsoleSnippetCode(targetUrl){
     warranty_kinds:w.warranty_kinds||[],
     warranty_extra:w.warranty_extra||{},
     dealer_claims:w.dealer_claims||[],
-    dateStr:(w.received_at||w.created_at||'').slice(0,10)||new Date().toISOString().slice(0,10)
+    dateStr:(w.received_at||w.reception_date||w.ngay_tiep_nhan||w.created_at||'').slice(0,10)||new Date().toISOString().slice(0,10)
   }));
 
   const json=JSON.stringify(orders);
@@ -13699,7 +13761,7 @@ function getUserscriptCode(targetUrl){
           warranty_kinds: w.warranty_kinds || [],
           warranty_extra: w.warranty_extra || {},
           dealer_claims: w.dealer_claims || [],
-          dateStr: (w.received_at || w.created_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10)
+          dateStr: (w.received_at || w.reception_date || w.ngay_tiep_nhan || w.created_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10)
         }));
 
         const json = JSON.stringify(orders);
@@ -14130,9 +14192,26 @@ function computeAll(){
 
   // monthly aggregation
   const months = new Map();
-  const touch = ym => { if(!months.has(ym)) months.set(ym, { conf: 0, cnt: 0, pipe: 0, pCnt: 0, labor: 0, partsMoney: 0 }); return months.get(ym); };
-  for(const r of confirmed){ const o = touch(r.cm); o.conf += r.total; o.cnt++; o.labor += r.labor; for(const p of r.parts) o.partsMoney += p.money; }
-  for(const r of pipeline){ const o = touch(r.cm); o.pipe += r.total; o.pCnt++; }
+  const touch = ym => { 
+    if(!months.has(ym)) months.set(ym, { conf: 0, confInc: 0, confEx: 0, cnt: 0, pipe: 0, pipeInc: 0, pipeEx: 0, pCnt: 0, labor: 0, partsMoney: 0 }); 
+    return months.get(ym); 
+  };
+  for(const r of confirmed){ 
+    const o = touch(r.cm); 
+    o.conf += r.total; 
+    o.confInc += (r.totalInc ?? r.total);
+    o.confEx += (r.totalEx ?? (r.totalInc ? Math.round(r.totalInc / 1.1) : r.total));
+    o.cnt++; 
+    o.labor += r.labor; 
+    for(const p of r.parts) o.partsMoney += p.money; 
+  }
+  for(const r of pipeline){ 
+    const o = touch(r.cm); 
+    o.pipe += r.total; 
+    o.pipeInc += (r.totalInc ?? r.total);
+    o.pipeEx += (r.totalEx ?? (r.totalInc ? Math.round(r.totalInc / 1.1) : r.total));
+    o.pCnt++; 
+  }
 
   // ĐÃ LÀM trong tháng kế hoạch
   const doneAgg = new Map();
@@ -14521,7 +14600,7 @@ function renderAll(){
         </div>
         <div class="kpi-val">${fmtT(C.expectedPlan)} <span style="font-size:16px">tr</span></div>
         <div class="kpi-sub">
-          Chốt <b>${fmtT(C.target.conf)}</b> + Dự trù <b>${fmtT(C.target.pipe)}</b>${C.coveredParts ? ` + Chuẩn bị <b>${fmtT(C.coveredParts)}</b>` : ''}
+          Chốt sau thuế <b>${fmtT(C.target.confInc || C.target.conf)} tr</b> (Trước VAT: <b>${fmtT(C.target.confEx || Math.round(C.target.conf / 1.1))} tr</b>) · Dự trù <b>${fmtT(C.target.pipe)} tr</b>${C.coveredParts ? ` · Chuẩn bị <b>${fmtT(C.coveredParts)} tr</b>` : ''}
         </div>
         <div class="kpi-progress-track">
           <div class="kpi-progress-fill" style="width:${targetPct}%;background:${isReached ? 'linear-gradient(90deg, #059669, #10b981)' : 'linear-gradient(90deg, #d97706, #f59e0b)'}"></div>
@@ -14584,7 +14663,10 @@ function renderAll(){
           <div style="font-size:11.5px;color:var(--text-muted);font-weight:normal">${cycleRangeText(m, cutTxt)}</div>
         </td>
         <td class="num">${o.cnt || '0'}</td>
-        <td class="num"><b>${fmtVND(o.conf)}</b></td>
+        <td class="num">
+          <div style="font-weight:700">${fmtVND(o.confInc || o.conf)}</div>
+          <div style="font-size:11px;color:var(--text-muted)">Trước VAT: ${fmtVND(o.confEx || Math.round(o.conf / 1.1))}</div>
+        </td>
         <td class="num" style="color:#d97706">${o.pCnt ? `${o.pCnt} ĐX · ` : ''}${fmtVND(o.pipe)}</td>
         <td class="num"><b style="color:var(--primary)">${fmtVND(exp)}</b></td>
         <td class="num" style="color:${d >= 0 ? 'var(--emerald)' : 'var(--rose)'}">${d >= 0 ? '+' : ''}${fmtVND(d)}</td>
@@ -15743,40 +15825,34 @@ window.__handleFiles = handleFiles;
       <div style="background:linear-gradient(135deg, rgba(124,58,237,0.14), rgba(15,23,42,0.85));border:1.5px solid #7c3aed;border-radius:var(--radius-md);padding:16px;margin-bottom:14px;box-shadow:0 4px 20px rgba(124,58,237,0.2)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
           <span style="font-size:14px;font-weight:700;color:#c084fc;display:flex;align-items:center;gap:6px">
-            💼 Đăng nhập & Tự động đồng bộ VinFast Dealer Portal
+            💼 Tự động đồng bộ VinFast Dealer Portal (Xác thực OTP)
           </span>
           <span style="font-size:11px;background:#7c3aed;color:#fff;padding:2px 8px;border-radius:10px;font-weight:600">Đại lý: N54511</span>
         </div>
-        <p style="font-size:12.5px;color:var(--text-muted);margin-bottom:14px;line-height:1.5">
-          Nhập tài khoản Dealer Portal của bạn (hoặc hệ thống tự dùng token đã lưu). Hệ thống sẽ tự động đồng bộ trọn vẹn danh sách Đề xuất Bảo hành (WC-...) và Lệnh sửa chữa.
+        <p style="font-size:12.5px;color:var(--text-muted);margin-bottom:12px;line-height:1.5">
+          VinFast Dealer Portal đăng nhập bằng <b>Số điện thoại (0704543581)</b> và <b>xác thực OTP</b> qua SMS (không dùng mật khẩu). Hệ thống Backend tự động duy trì và tự động làm mới Refresh Token mỗi 12 phút 24/7.
         </p>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-          <div>
-            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--text-main)">Tên đăng nhập Dealer Portal:</label>
-            <input type="text" id="dealerPortalApiUser" placeholder="vd: 0704543581" value="0704543581" style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:6px;border:1px solid rgba(192,132,252,0.3);background:rgba(15,23,42,0.85);color:#fff;font-size:13px;outline:none" autocomplete="username">
-          </div>
-          <div>
-            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--text-main)">Mật khẩu Dealer Portal:</label>
-            <input type="password" id="dealerPortalApiPass" placeholder="Nhập mật khẩu (nếu chưa lưu token)" style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:6px;border:1px solid rgba(192,132,252,0.3);background:rgba(15,23,42,0.85);color:#fff;font-size:13px;outline:none" autocomplete="current-password">
-          </div>
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--text-main)">Số điện thoại tài khoản:</label>
+          <input type="text" id="dealerPortalApiUser" value="0704543581" readonly style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:6px;border:1px solid rgba(192,132,252,0.3);background:rgba(15,23,42,0.85);color:#cbd5e1;font-size:13px;outline:none">
         </div>
 
         <div style="margin-bottom:12px">
           <label style="display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:4px">
-            Hoặc dán Token / chuỗi JSON Dealer Portal (tùy chọn):
+            Dán Token / chuỗi JSON Dealer Portal từ F12 (hoặc để trống để dùng Token hệ thống đang lưu):
           </label>
-          <input type="password" id="dealerPortalRefreshTokenInput" placeholder="Dán Token hoặc đoạn JSON (accessToken, refreshToken) nếu có..." style="width:100%;box-sizing:border-box;padding:6px 12px;border-radius:6px;border:1px solid rgba(192,132,252,0.2);background:rgba(15,23,42,0.7);color:#e2e8f0;font-size:12px;outline:none">
+          <input type="password" id="dealerPortalRefreshTokenInput" placeholder="Dán chuỗi Token (eyJ...) hoặc cả đoạn JSON F12..." style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:6px;border:1px solid rgba(192,132,252,0.25);background:rgba(15,23,42,0.7);color:#e2e8f0;font-size:12px;outline:none">
         </div>
 
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
           <input type="checkbox" id="dealerPortalRemember" checked style="accent-color:#7c3aed;cursor:pointer">
-          <label for="dealerPortalRemember" style="font-size:12px;color:var(--text-muted);cursor:pointer">Ghi nhớ tài khoản trên máy này</label>
+          <label for="dealerPortalRemember" style="font-size:12px;color:var(--text-muted);cursor:pointer">Tự động lưu và gia hạn Token liên tục trên hệ thống</label>
         </div>
 
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <button class="btn primary" id="btnSyncDealerPortalApi" onclick="syncDealerPortalViaApi()" style="padding:10px 18px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;box-shadow:0 4px 14px rgba(124,58,237,0.4);cursor:pointer">
-            💼 ĐĂNG NHẬP & ĐỒNG BỘ DEALER PORTAL
+            ⚡ ĐỒNG BỘ DEALER PORTAL (DÙNG TOKEN SẴN CÓ)
           </button>
           <button class="btn secondary" onclick="importDealerPortalClipboard()" style="padding:10px 14px;font-size:12.5px">
             📋 Dán JSON từ F12 (Ctrl+V)
@@ -17209,34 +17285,58 @@ function isSettledOrHigher(st, raw) {
 window.isSettledOrHigher = isSettledOrHigher;
 
 function evaluateCheckStatus(hasLoi, hasKtvNote, hasBangCapNhat){
-  // QUY TẮC MỚI THEO YÊU CẦU NGƯỜI DÙNG:
-  // "xe không lỗi thì tính là trạng thái check là xe không lỗi"
-  if(!hasLoi){
+  // 1. Những xe không lỗi thì không cần thêm bảng cập nhật
+  if(!hasLoi && !hasBangCapNhat){
     return { 
       code: 'no_fault', 
       label: '✅ Xe không lỗi', 
       badgeClass: 'no_fault', 
-      desc: 'Xe bình thường, không có hạng mục lỗi' 
+      desc: 'Xe không lỗi, không cần thêm bảng cập nhật' 
     };
   }
 
-  // Nếu CÓ LỖI:
-  // 1. Có lỗi + có bảng cập nhật phía dưới (hoặc đã có ghi chú KTV hoàn tất) -> Đã check
-  if(hasBangCapNhat || hasKtvNote){
+  // 2. Những xe cần check lại là những xe không có hạng mục lỗi, không có ghi chú KTV nhưng có bảng cập nhật
+  // (hoặc xe có lỗi & có bảng cập nhật nhưng KTV chưa để lại ghi chú xác nhận)
+  if((!hasLoi && !hasKtvNote && hasBangCapNhat) || (hasLoi && hasBangCapNhat && !hasKtvNote)){
+    return { 
+      code: 'recheck', 
+      label: '⚠️ Cần check lại', 
+      badgeClass: 'recheck', 
+      desc: !hasLoi 
+        ? 'Không có hạng mục lỗi, không có ghi chú KTV nhưng có bảng cập nhật' 
+        : 'Có hạng mục lỗi & bảng cập nhật nhưng thiếu ghi chú KTV'
+    };
+  }
+
+  // 3. Những xe chưa check là những xe có hạng mục lỗi nhưng không có bảng cập nhật và ghi chú KTV
+  if(hasLoi && !hasBangCapNhat && !hasKtvNote){
+    return { 
+      code: 'unchecked', 
+      label: '🔴 Chưa check', 
+      badgeClass: 'unchecked', 
+      desc: 'Có hạng mục lỗi nhưng không có bảng cập nhật và ghi chú KTV' 
+    };
+  }
+
+  // 4. Những xe đã check là những xe:
+  // - Có hạng mục lỗi, có bảng cập nhật và có ghi chú KTV
+  // - Hoặc có bảng cập nhật và có ghi chú KTV
+  // - Hoặc có hạng mục lỗi và có ghi chú KTV
+  if((hasLoi && hasBangCapNhat && hasKtvNote) || (hasBangCapNhat && hasKtvNote) || (hasLoi && hasKtvNote)){
     return { 
       code: 'checked', 
       label: '✅ Đã check', 
       badgeClass: 'checked', 
-      desc: hasBangCapNhat ? 'Đã cập nhật bảng linh kiện/PIN/Động cơ' : 'Đã có ghi chú kiểm tra KTV' 
+      desc: 'Đã hoàn tất kiểm tra và ghi chú KTV' 
     };
   }
 
-  // 2. Có lỗi nhưng CHƯA có ghi chú KTV VÀ CHƯA có bảng cập nhật -> Mặc định Chưa check
+  // Mặc định an toàn
   return { 
     code: 'unchecked', 
     label: '🔴 Chưa check', 
     badgeClass: 'unchecked', 
-    desc: 'Có lỗi nhưng chưa kiểm tra & chưa cập nhật bảng linh kiện' 
+    desc: 'Cần kiểm tra xe' 
   };
 }
 
@@ -18001,9 +18101,9 @@ function normalizeOrder(raw, i){
     { source: d.source, fleet: d.fleet, note: d.advisor_note || d.foreman_note || d.symptoms }
   );
 
-  // Chuẩn hóa ngày nhận xe
-  const rawDate = d.dateStr || d.received_at || d.created_at || new Date().toISOString().slice(0, 10);
-  const isoDate = formatIsoDate(rawDate) || new Date().toISOString().slice(0, 10);
+  // Chuẩn hóa ngày nhận xe: ƯU TIÊN 100% NGÀY TIẾP NHẬN CỦA XE (received_at / reception_date)
+  const rawDate = d.received_at || d.reception_date || d.ngay_tiep_nhan || d.dateStr || d.created_at || '';
+  const isoDate = formatIsoDate(rawDate) || (d.dateStr ? formatIsoDate(d.dateStr) : '') || new Date().toISOString().slice(0, 10);
   const dispDate = formatDisplayDate(isoDate);
 
   const order = {
@@ -20932,7 +21032,7 @@ function getConsoleSnippetCode(targetUrl){
     warranty_kinds:w.warranty_kinds||[],
     warranty_extra:w.warranty_extra||{},
     dealer_claims:w.dealer_claims||[],
-    dateStr:(w.received_at||w.created_at||'').slice(0,10)||new Date().toISOString().slice(0,10)
+    dateStr:(w.received_at||w.reception_date||w.ngay_tiep_nhan||w.created_at||'').slice(0,10)||new Date().toISOString().slice(0,10)
   }));
 
   const json=JSON.stringify(orders);
@@ -21070,7 +21170,7 @@ function getUserscriptCode(targetUrl){
           warranty_kinds: w.warranty_kinds || [],
           warranty_extra: w.warranty_extra || {},
           dealer_claims: w.dealer_claims || [],
-          dateStr: (w.received_at || w.created_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10)
+          dateStr: (w.received_at || w.reception_date || w.ngay_tiep_nhan || w.created_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10)
         }));
 
         const json = JSON.stringify(orders);
@@ -21501,9 +21601,26 @@ function computeAll(){
 
   // monthly aggregation
   const months = new Map();
-  const touch = ym => { if(!months.has(ym)) months.set(ym, { conf: 0, cnt: 0, pipe: 0, pCnt: 0, labor: 0, partsMoney: 0 }); return months.get(ym); };
-  for(const r of confirmed){ const o = touch(r.cm); o.conf += r.total; o.cnt++; o.labor += r.labor; for(const p of r.parts) o.partsMoney += p.money; }
-  for(const r of pipeline){ const o = touch(r.cm); o.pipe += r.total; o.pCnt++; }
+  const touch = ym => { 
+    if(!months.has(ym)) months.set(ym, { conf: 0, confInc: 0, confEx: 0, cnt: 0, pipe: 0, pipeInc: 0, pipeEx: 0, pCnt: 0, labor: 0, partsMoney: 0 }); 
+    return months.get(ym); 
+  };
+  for(const r of confirmed){ 
+    const o = touch(r.cm); 
+    o.conf += r.total; 
+    o.confInc += (r.totalInc ?? r.total);
+    o.confEx += (r.totalEx ?? (r.totalInc ? Math.round(r.totalInc / 1.1) : r.total));
+    o.cnt++; 
+    o.labor += r.labor; 
+    for(const p of r.parts) o.partsMoney += p.money; 
+  }
+  for(const r of pipeline){ 
+    const o = touch(r.cm); 
+    o.pipe += r.total; 
+    o.pipeInc += (r.totalInc ?? r.total);
+    o.pipeEx += (r.totalEx ?? (r.totalInc ? Math.round(r.totalInc / 1.1) : r.total));
+    o.pCnt++; 
+  }
 
   // ĐÃ LÀM trong tháng kế hoạch
   const doneAgg = new Map();
@@ -21892,7 +22009,7 @@ function renderAll(){
         </div>
         <div class="kpi-val">${fmtT(C.expectedPlan)} <span style="font-size:16px">tr</span></div>
         <div class="kpi-sub">
-          Chốt <b>${fmtT(C.target.conf)}</b> + Dự trù <b>${fmtT(C.target.pipe)}</b>${C.coveredParts ? ` + Chuẩn bị <b>${fmtT(C.coveredParts)}</b>` : ''}
+          Chốt sau thuế <b>${fmtT(C.target.confInc || C.target.conf)} tr</b> (Trước VAT: <b>${fmtT(C.target.confEx || Math.round(C.target.conf / 1.1))} tr</b>) · Dự trù <b>${fmtT(C.target.pipe)} tr</b>${C.coveredParts ? ` · Chuẩn bị <b>${fmtT(C.coveredParts)} tr</b>` : ''}
         </div>
         <div class="kpi-progress-track">
           <div class="kpi-progress-fill" style="width:${targetPct}%;background:${isReached ? 'linear-gradient(90deg, #059669, #10b981)' : 'linear-gradient(90deg, #d97706, #f59e0b)'}"></div>
@@ -21955,7 +22072,10 @@ function renderAll(){
           <div style="font-size:11.5px;color:var(--text-muted);font-weight:normal">${cycleRangeText(m, cutTxt)}</div>
         </td>
         <td class="num">${o.cnt || '0'}</td>
-        <td class="num"><b>${fmtVND(o.conf)}</b></td>
+        <td class="num">
+          <div style="font-weight:700">${fmtVND(o.confInc || o.conf)}</div>
+          <div style="font-size:11px;color:var(--text-muted)">Trước VAT: ${fmtVND(o.confEx || Math.round(o.conf / 1.1))}</div>
+        </td>
         <td class="num" style="color:#d97706">${o.pCnt ? `${o.pCnt} ĐX · ` : ''}${fmtVND(o.pipe)}</td>
         <td class="num"><b style="color:var(--primary)">${fmtVND(exp)}</b></td>
         <td class="num" style="color:${d >= 0 ? 'var(--emerald)' : 'var(--rose)'}">${d >= 0 ? '+' : ''}${fmtVND(d)}</td>
@@ -23114,40 +23234,34 @@ window.__handleFiles = handleFiles;
       <div style="background:linear-gradient(135deg, rgba(124,58,237,0.14), rgba(15,23,42,0.85));border:1.5px solid #7c3aed;border-radius:var(--radius-md);padding:16px;margin-bottom:14px;box-shadow:0 4px 20px rgba(124,58,237,0.2)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
           <span style="font-size:14px;font-weight:700;color:#c084fc;display:flex;align-items:center;gap:6px">
-            💼 Đăng nhập & Tự động đồng bộ VinFast Dealer Portal
+            💼 Tự động đồng bộ VinFast Dealer Portal (Xác thực OTP)
           </span>
           <span style="font-size:11px;background:#7c3aed;color:#fff;padding:2px 8px;border-radius:10px;font-weight:600">Đại lý: N54511</span>
         </div>
-        <p style="font-size:12.5px;color:var(--text-muted);margin-bottom:14px;line-height:1.5">
-          Nhập tài khoản Dealer Portal của bạn (hoặc hệ thống tự dùng token đã lưu). Hệ thống sẽ tự động đồng bộ trọn vẹn danh sách Đề xuất Bảo hành (WC-...) và Lệnh sửa chữa.
+        <p style="font-size:12.5px;color:var(--text-muted);margin-bottom:12px;line-height:1.5">
+          VinFast Dealer Portal đăng nhập bằng <b>Số điện thoại (0704543581)</b> và <b>xác thực OTP</b> qua SMS (không dùng mật khẩu). Hệ thống Backend tự động duy trì và tự động làm mới Refresh Token mỗi 12 phút 24/7.
         </p>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-          <div>
-            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--text-main)">Tên đăng nhập Dealer Portal:</label>
-            <input type="text" id="dealerPortalApiUser" placeholder="vd: 0704543581" value="0704543581" style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:6px;border:1px solid rgba(192,132,252,0.3);background:rgba(15,23,42,0.85);color:#fff;font-size:13px;outline:none" autocomplete="username">
-          </div>
-          <div>
-            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--text-main)">Mật khẩu Dealer Portal:</label>
-            <input type="password" id="dealerPortalApiPass" placeholder="Nhập mật khẩu (nếu chưa lưu token)" style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:6px;border:1px solid rgba(192,132,252,0.3);background:rgba(15,23,42,0.85);color:#fff;font-size:13px;outline:none" autocomplete="current-password">
-          </div>
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--text-main)">Số điện thoại tài khoản:</label>
+          <input type="text" id="dealerPortalApiUser" value="0704543581" readonly style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:6px;border:1px solid rgba(192,132,252,0.3);background:rgba(15,23,42,0.85);color:#cbd5e1;font-size:13px;outline:none">
         </div>
 
         <div style="margin-bottom:12px">
           <label style="display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:4px">
-            Hoặc dán Token / chuỗi JSON Dealer Portal (tùy chọn):
+            Dán Token / chuỗi JSON Dealer Portal từ F12 (hoặc để trống để dùng Token hệ thống đang lưu):
           </label>
-          <input type="password" id="dealerPortalRefreshTokenInput" placeholder="Dán Token hoặc đoạn JSON (accessToken, refreshToken) nếu có..." style="width:100%;box-sizing:border-box;padding:6px 12px;border-radius:6px;border:1px solid rgba(192,132,252,0.2);background:rgba(15,23,42,0.7);color:#e2e8f0;font-size:12px;outline:none">
+          <input type="password" id="dealerPortalRefreshTokenInput" placeholder="Dán chuỗi Token (eyJ...) hoặc cả đoạn JSON F12..." style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:6px;border:1px solid rgba(192,132,252,0.25);background:rgba(15,23,42,0.7);color:#e2e8f0;font-size:12px;outline:none">
         </div>
 
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
           <input type="checkbox" id="dealerPortalRemember" checked style="accent-color:#7c3aed;cursor:pointer">
-          <label for="dealerPortalRemember" style="font-size:12px;color:var(--text-muted);cursor:pointer">Ghi nhớ tài khoản trên máy này</label>
+          <label for="dealerPortalRemember" style="font-size:12px;color:var(--text-muted);cursor:pointer">Tự động lưu và gia hạn Token liên tục trên hệ thống</label>
         </div>
 
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <button class="btn primary" id="btnSyncDealerPortalApi" onclick="syncDealerPortalViaApi()" style="padding:10px 18px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;box-shadow:0 4px 14px rgba(124,58,237,0.4);cursor:pointer">
-            💼 ĐĂNG NHẬP & ĐỒNG BỘ DEALER PORTAL
+            ⚡ ĐỒNG BỘ DEALER PORTAL (DÙNG TOKEN SẴN CÓ)
           </button>
           <button class="btn secondary" onclick="importDealerPortalClipboard()" style="padding:10px 14px;font-size:12.5px">
             📋 Dán JSON từ F12 (Ctrl+V)

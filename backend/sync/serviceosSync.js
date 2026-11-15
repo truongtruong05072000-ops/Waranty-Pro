@@ -135,6 +135,26 @@ export class ServiceOsSync extends EventEmitter {
         }
       }
 
+      // Đảm bảo storage.mergedOrders chỉ lưu đúng các xe active từ ServiceOS (chống đội số lượng xe trong xưởng)
+      const activeVins = new Set();
+      const activeCodes = new Set();
+      const activeIdStrs = new Set();
+      for (const raw of activeOrders) {
+        if (raw.vin) activeVins.add(raw.vin.trim().toUpperCase());
+        if (raw.code) activeCodes.add(raw.code.trim().toUpperCase());
+        if (raw.id) activeIdStrs.add(String(raw.id));
+      }
+      for (const [key, ord] of storage.mergedOrders.entries()) {
+        const oVin = (ord.vin || '').trim().toUpperCase();
+        const oCode = (ord.code || ord.serviceOsCode || '').trim().toUpperCase();
+        const oId = ord.id ? String(ord.id) : '';
+        const isValid = activeVins.has(key) || activeCodes.has(key) || activeIdStrs.has(key) ||
+                        (oVin && activeVins.has(oVin)) || (oCode && activeCodes.has(oCode)) || (oId && activeIdStrs.has(oId));
+        if (!isValid) {
+          storage.mergedOrders.delete(key);
+        }
+      }
+
       this.stats.lastUpdatedCount = updatedList.length;
 
       // 5. Nếu có xe thay đổi, bắn sự kiện Real-time
