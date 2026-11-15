@@ -3728,8 +3728,8 @@ window.syncServiceOsViaApi = async function(opts = {}){
   // Danh sách các cổng API kết nối thông minh (ưu tiên local proxy trên máy -> Cloudflare Worker)
   const isHttps = window.location.protocol === 'https:';
   const candidateUrls = isHttps 
-    ? ['/api/sync-serviceos', 'https://fragrant-heart-e2d4.truongtruong-05072000.workers.dev/api/sync-serviceos']
-    : ['http://127.0.0.1:8787/api/sync-serviceos', 'http://localhost:3001/api/sync-serviceos', '/api/sync-serviceos', 'https://fragrant-heart-e2d4.truongtruong-05072000.workers.dev/api/sync-serviceos'];
+    ? ['/api/sync-serviceos']
+    : ['http://127.0.0.1:8787/api/sync-serviceos', 'http://localhost:3001/api/sync-serviceos', '/api/sync-serviceos'];
   const apiUrls = [...new Set(candidateUrls)];
 
   let lastErr = null;
@@ -3850,8 +3850,8 @@ window.syncDealerPortalViaApi = async function(opts = {}){
 
   const isHttps = window.location.protocol === 'https:';
   const candidateUrls = isHttps
-    ? ['/api/sync-dealer-portal', 'https://fragrant-heart-e2d4.truongtruong-05072000.workers.dev/api/sync-dealer-portal']
-    : ['http://127.0.0.1:8787/api/sync-dealer-portal', 'http://localhost:3001/api/sync-dealer-portal', '/api/sync-dealer-portal', 'https://fragrant-heart-e2d4.truongtruong-05072000.workers.dev/api/sync-dealer-portal'];
+    ? ['/api/sync-dealer-portal']
+    : ['http://127.0.0.1:8787/api/sync-dealer-portal', 'http://localhost:3001/api/sync-dealer-portal', '/api/sync-dealer-portal'];
   const apiUrls = [...new Set(candidateUrls)];
 
   let lastErr = null;

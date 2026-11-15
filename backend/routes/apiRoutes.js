@@ -87,11 +87,11 @@ export async function handleApiRoute(req, res, pathname, query, body) {
 
       // Đảm bảo có token hợp lệ
       const tokenValid = await dealerPortalAuth.ensureValidToken();
-      if (!tokenValid && !dealerPortalAuth.getStatus().hasRefreshToken) {
+      if (!tokenValid) {
         return jsonResponse(401, {
           success: false,
           ok: false,
-          error: 'Chưa cấu hình Refresh Token cho VinFast Dealer Portal. Vui lòng nhập Refresh Token!'
+          error: 'Token Dealer Portal chưa hợp lệ hoặc đã hết hạn! Vui lòng dán Refresh Token mới từ trang dealer-portal.vinfast.com vào ô nhập liệu.'
         });
       }
 

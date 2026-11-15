@@ -142,6 +142,23 @@ class DealerPortalAuth {
     return res;
   }
 
+  async ensureValidToken() {
+    const status = this.getStatus();
+    if (status.hasAccessToken && status.status === 'ACTIVE') {
+      return true;
+    }
+    const tokenData = storage.getDealerPortalToken();
+    if (tokenData && tokenData.refreshToken) {
+      try {
+        await this.refreshToken();
+        return true;
+      } catch (err) {
+        return false;
+      }
+    }
+    return false;
+  }
+
   getStatus() {
     const tokenData = storage.getDealerPortalToken();
     const now = Date.now();
