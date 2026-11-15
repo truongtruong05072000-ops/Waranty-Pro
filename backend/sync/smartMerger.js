@@ -27,10 +27,14 @@ export class SmartMerger {
   static mergeServiceOsOrder(rawOrder, detail = null) {
     if (!rawOrder) return null;
     const vin = normalizeVin(rawOrder.vin);
-    const key = vin || rawOrder.id || rawOrder.code;
+    // Khóa định danh duy nhất của mỗi lượt tiếp nhận là MÃ LỆNH SỬA CHỮA (tránh ghi đè khi cùng 1 xe vào nhiều lần)
+    const orderCode = String(rawOrder.code || rawOrder.serviceOsCode || rawOrder.id).trim().toUpperCase();
+    const key = orderCode;
 
     const existing = storage.mergedOrders.get(key) || {};
-    const userEdit = storage.getUserEdit(key) || storage.getUserEdit(rawOrder.id) || {};
+    const userEdit = (key ? storage.getUserEdit(key) : null) || 
+                     (rawOrder.id ? storage.getUserEdit(rawOrder.id) : null) || 
+                     (vin ? storage.getUserEdit(vin) : null) || {};
 
     // Số lần quay lại xưởng từ mảng history trong detail
     let revisitCount = existing.revisitCount || 0;
@@ -48,7 +52,7 @@ export class SmartMerger {
       source: rawOrder.source || existing.source || 'gsm',
       fleet: rawOrder.fleet || existing.fleet || rawOrder.source || 'gsm',
       priority: rawOrder.priority || existing.priority || 'normal',
-      service_type: rawOrder.service_type || existing.service_type || 'warranty',
+      service_type: rawOrder.service_type || existing.service_type || 'general',
       received_at: rawOrder.received_at || existing.received_at,
       promised_at: rawOrder.promised_at || existing.promised_at,
       completed_at: rawOrder.completed_at || existing.completed_at,

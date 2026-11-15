@@ -108,20 +108,7 @@ export class ServiceOsSync extends EventEmitter {
 
         if (!lastUpdated || lastUpdated !== currentUpdated) {
           this.ramCache.set(raw.id, currentUpdated);
-
-          // 4. Khi và chỉ khi xe mới hoặc có thay đổi, gọi API chi tiết
-          let detail = null;
-          try {
-            const detailRes = await serviceosAuth.fetchWithAuth(`/api/work-orders/${raw.id}`);
-            if (detailRes.ok) {
-              const dt = await detailRes.json();
-              detail = dt.work_order || dt;
-            }
-          } catch (e) {
-            // Không chặn tiến trình nếu detail tạm thời lỗi
-          }
-
-          const merged = SmartMerger.mergeServiceOsOrder(raw, detail);
+          const merged = SmartMerger.mergeServiceOsOrder(raw, null);
           if (merged) {
             updatedList.push(merged);
           }
@@ -135,25 +122,20 @@ export class ServiceOsSync extends EventEmitter {
         }
       }
 
-      // Đảm bảo storage.mergedOrders chỉ lưu đúng các xe active từ ServiceOS (chống đội số lượng xe trong xưởng)
-      const activeVins = new Set();
+      // Đảm bảo storage.mergedOrders chỉ lưu đúng các lệnh active từ ServiceOS theo mã lệnh (chống đội số lượng xe trong xưởng)
       const activeCodes = new Set();
-      const activeIdStrs = new Set();
       for (const raw of activeOrders) {
-        if (raw.vin) activeVins.add(raw.vin.trim().toUpperCase());
         if (raw.code) activeCodes.add(raw.code.trim().toUpperCase());
-        if (raw.id) activeIdStrs.add(String(raw.id));
       }
       for (const [key, ord] of storage.mergedOrders.entries()) {
-        const oVin = (ord.vin || '').trim().toUpperCase();
         const oCode = (ord.code || ord.serviceOsCode || '').trim().toUpperCase();
-        const oId = ord.id ? String(ord.id) : '';
-        const isValid = activeVins.has(key) || activeCodes.has(key) || activeIdStrs.has(key) ||
-                        (oVin && activeVins.has(oVin)) || (oCode && activeCodes.has(oCode)) || (oId && activeIdStrs.has(oId));
+        const isValid = activeCodes.has(key) && (oCode === key);
         if (!isValid) {
           storage.mergedOrders.delete(key);
         }
       }
+
+      storage.saveDataCache();
 
       this.stats.lastUpdatedCount = updatedList.length;
 
