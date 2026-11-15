@@ -3045,9 +3045,25 @@ function normalizeOrder(raw, i){
   const issueDesc = isNoisyDiag ? '' : rawDiag;
   const issue = hasLoi ? faultList.join(', ') : 'Không lỗi';
 
-  // 2. GHI CHÚ KTV
-  const note = String(d.note || d.foreman_note || d.advisor_note || '').trim();
-  const hasKtvNote = hasTextContent(note);
+  // 2. PHÂN BIỆT RÕ RÀNG GHI CHÚ KỸ THUẬT VIÊN (KTV) VÀ GHI CHÚ CỐ VẤN DỊCH VỤ (CVDV)
+  // GHI CHÚ KỸ THUẬT VIÊN (KTV / Quản đốc) - Tuyệt đối KHÔNG lấy nhầm advisor_note của Cố vấn dịch vụ
+  const ktvNote = String(
+    d.ktvNote || d.ktv_note || 
+    d.foreman_note || d.foremanNote || 
+    d.technician_note || d.tech_note || 
+    d.technicianNote || d.techNote ||
+    (d.note && d.note !== d.advisor_note ? d.note : '') || ''
+  ).trim();
+  const note = ktvNote;
+  const hasKtvNote = hasTextContent(ktvNote);
+
+  // GHI CHÚ CỐ VẤN DỊCH VỤ (CVDV)
+  const advisorNote = String(
+    d.advisor_note || d.advisorNote || 
+    d.cvdv_note || d.cvdvNote || 
+    d.service_advisor_note || ''
+  ).trim();
+  const hasAdvisorNote = hasTextContent(advisorNote);
 
   // 3. BẢNG CẬP NHẬT PHÍA DƯỚI (LẤY ĐẦY ĐỦ LỆNH BẢO HÀNH, ĐXBH, CHI TIẾT ĐỀ XUẤT)
   let pinSerial = String(d.pinSerial || d.battery_serial_old || d.battery_serial || '').trim();
@@ -3322,6 +3338,12 @@ function normalizeOrder(raw, i){
     faultList: faultList,
     faultStr: faultList.join(', '),
     note: note,
+    ktvNote: ktvNote,
+    advisorNote: advisorNote,
+    advisor_note: advisorNote,
+    foreman_note: ktvNote,
+    hasKtvNote: hasKtvNote,
+    hasAdvisorNote: hasAdvisorNote,
     status: status,
     warrantyStatus: warrantyStatus,
     pinSerial: pinSerial,
@@ -4209,11 +4231,12 @@ window.openEditNoteModal = function(idx){
       <div style="font-size:12px;color:var(--text-muted);margin-top:2px">
         Trạng thái check: <b>${esc(o.checkStatus.label)}</b> · Ngày nhận: <b>${esc(o.dateStr)}</b>
       </div>
+      ${o.advisorNote ? `<div style="font-size:12px;color:#d97706;margin-top:4px;background:rgba(251,191,36,0.1);padding:5px 8px;border-radius:4px;border:1px solid rgba(251,191,36,0.25)">👤 <b>Ghi chú Cố vấn dịch vụ (CVDV):</b> ${esc(o.advisorNote)}</div>` : ''}
       ${o.updateTableText ? `<div style="font-size:11.5px;color:#15803d;margin-top:4px;background:#f0fdf4;padding:4px 8px;border-radius:4px">📦 <b>Bảng cập nhật:</b> ${esc(o.updateTableText)}</div>` : '<div style="font-size:11.5px;color:#dc2626;margin-top:4px">⚠️ <i>Chưa có bảng cập nhật linh kiện/PIN phía dưới</i></div>'}
     `;
   }
   const inp = $('#editNoteInput');
-  if(inp) inp.value = o.note || '';
+  if(inp) inp.value = o.ktvNote || o.note || '';
   const m = $('#modalEditNote');
   if(m) m.hidden = false;
 };
@@ -4238,6 +4261,8 @@ window.saveEditedNote = function(){
   const newNote = inp ? inp.value.trim() : '';
   const order = state.checkXe.orders[currentEditingOrderIndex];
   order.note = newNote;
+  order.ktvNote = newNote;
+  order.foreman_note = newNote;
   order.hasKtvNote = hasTextContent(newNote);
   order.checkStatus = evaluateCheckStatus(order.hasLoi, order.hasKtvNote, order.hasBangCapNhat);
   order.isChecked = order.checkStatus.code === 'checked';
@@ -4378,6 +4403,7 @@ window.exportCheckXeExcel = function(mode = 'filtered'){
       'Nội dung kiểm tra / Lỗi chi tiết',
       'Bảng cập nhật phía dưới (PIN/Động cơ/Serial/Lệnh BH)',
       'Ghi chú KTV (Dữ liệu check)',
+      'Ghi chú Cố vấn dịch vụ (CVDV)',
       'Ngày nhận xe',
       'Trạng thái Check',
       'Trạng thái xe trong xưởng'
@@ -4396,6 +4422,7 @@ window.exportCheckXeExcel = function(mode = 'filtered'){
       o.issue || '—',
       o.hasBangCapNhat ? o.updateTableText : 'Chưa có bảng cập nhật',
       o.hasKtvNote ? o.note : 'Trống',
+      o.advisorNote || '—',
       o.dateStr || '—',
       o.checkStatus ? o.checkStatus.label.replace(/^[^\w\s]+/, '').trim() : 'Chưa check',
       o.status || 'Trong xưởng'
@@ -4776,10 +4803,19 @@ function renderCheckXe(options = {}){
             ${formatBangCapNhatHtml(o)}
           </td>
           <td class="l part-name-cell">
-            ${o.hasKtvNote ? 
-              `<div style="font-weight:600;color:#f8fafc;font-size:12px">${esc(o.note)}</div>` : 
-              `<span class="empty-note">— Trống</span>`
-            }
+            ${o.hasKtvNote ? `
+              <div style="font-weight:600;color:#38bdf8;font-size:12px" title="Ghi chú Kỹ thuật viên">
+                <span style="font-size:10px;padding:1px 5px;border-radius:3px;background:rgba(56,189,248,0.18);color:#38bdf8;font-weight:700">KTV</span>
+                ${esc(o.ktvNote || o.note)}
+              </div>
+            ` : `<span class="empty-note" style="display:block;margin-bottom:2px">— KTV chưa ghi chú</span>`}
+            
+            ${o.advisorNote ? `
+              <div style="font-size:11px;color:#fcd34d;margin-top:3px;padding-top:2px;border-top:1px dashed rgba(255,255,255,0.08)" title="Ghi chú Cố vấn dịch vụ">
+                <span style="font-size:10px;padding:1px 5px;border-radius:3px;background:rgba(251,191,36,0.18);color:#fbbf24;font-weight:700">CVDV</span>
+                ${esc(o.advisorNote)}
+              </div>
+            ` : ''}
           </td>
           <td class="l">
             <div style="font-size:11.5px;font-weight:600">📅 ${esc(o.dateStr)}</div>
@@ -4840,10 +4876,19 @@ function renderCheckXe(options = {}){
           }
         </td>
         <td class="l part-name-cell">
-          ${o.hasKtvNote ? 
-            `<div style="font-weight:600;color:#f8fafc;font-size:12px">${esc(o.note)}</div>` : 
-            `<span class="empty-note">— Trống</span>`
-          }
+          ${o.hasKtvNote ? `
+            <div style="font-weight:600;color:#38bdf8;font-size:12px" title="Ghi chú Kỹ thuật viên">
+              <span style="font-size:10px;padding:1px 5px;border-radius:3px;background:rgba(56,189,248,0.18);color:#38bdf8;font-weight:700">KTV</span>
+              ${esc(o.ktvNote || o.note)}
+            </div>
+          ` : `<span class="empty-note" style="display:block;margin-bottom:2px">— KTV chưa ghi chú</span>`}
+          
+          ${o.advisorNote ? `
+            <div style="font-size:11px;color:#fcd34d;margin-top:3px;padding-top:2px;border-top:1px dashed rgba(255,255,255,0.08)" title="Ghi chú Cố vấn dịch vụ">
+              <span style="font-size:10px;padding:1px 5px;border-radius:3px;background:rgba(251,191,36,0.18);color:#fbbf24;font-weight:700">CVDV</span>
+              ${esc(o.advisorNote)}
+            </div>
+          ` : ''}
         </td>
         <td class="l">
           <div style="font-size:11.5px;font-weight:600">📅 ${esc(o.dateStr)}</div>
@@ -5773,8 +5818,27 @@ function parseServiceOsWorkbook(wb){
     // Hạng mục lỗi
     const issue = String(pickCol(map, row, ['hang muc loi', 'hang muc', 'noi dung kiem tra', 'noi dung sua chua', 'noi dung', 'loi', 'yeu cau khach hang', 'ly do vao xuong', 'trieu chung', 'chan doan']) || '').trim();
     
-    // Ghi chú KTV
-    const note = String(pickCol(map, row, ['ghi chu cua ky thuat vien', 'ghi chu cua quan doc & ky thuat vien', 'ghi chu cua quan doc', 'ghi chu ktv', 'ghi chu', 'chan doan cua ktv']) || '').trim();
+    // Ghi chú KTV (kỹ thuật viên / quản đốc)
+    const ktvNote = String(pickCol(map, row, [
+      'ghi chu cua ky thuat vien', 
+      'ghi chu cua quan doc & ky thuat vien', 
+      'ghi chu cua quan doc', 
+      'ghi chu ktv', 
+      'chan doan cua ktv',
+      'foreman_note',
+      'technician_note'
+    ]) || '').trim();
+
+    // Ghi chú CVDV (cố vấn dịch vụ)
+    const advisorNote = String(pickCol(map, row, [
+      'ghi chu cua co van dich vu',
+      'ghi chu cua co van',
+      'ghi chu co van dich vu',
+      'ghi chu co van',
+      'ghi chu cvdv',
+      'advisor_note'
+    ]) || '').trim();
+    const note = ktvNote;
     
     // Bảng cập nhật phía dưới
     const pinSerial = String(pickCol(map, row, ['serial pin', 'so serial pin', 'pin serial', 'pin_serial', 'battery_serial']) || '').trim();
@@ -5797,6 +5861,10 @@ function parseServiceOsWorkbook(wb){
       tech: tech || 'Chưa phân công',
       issue: issue,
       note: note,
+      ktvNote: ktvNote,
+      advisorNote: advisorNote,
+      advisor_note: advisorNote,
+      foreman_note: ktvNote,
       status: status,
       warrantyStatus: warrantyStatus,
       pinSerial: pinSerial,
@@ -6259,7 +6327,7 @@ function getConsoleSnippetCode(targetUrl){
     tech:w.technician_name||'Chưa phân công',
     diagnosis:w.diagnosis||w.symptoms||w.content||'',
     faults:w.faults||[],
-    note:(w.foreman_note||w.advisor_note||'').trim(),
+    note:(w.foreman_note||'').trim(), foreman_note:(w.foreman_note||'').trim(), advisor_note:(w.advisor_note||'').trim(),
     status:w.status_label||w.status||'Trong xưởng',
     warrantyStatus:w.warranty_status||w.dms_warranty_status||'',
     pinSerial:w.battery_serial_old||w.battery_serial_new||'',
@@ -6397,7 +6465,7 @@ function getUserscriptCode(targetUrl){
           tech: w.technician_name || 'Chưa phân công',
           diagnosis: w.diagnosis || w.symptoms || w.content || '',
           faults: w.faults || [],
-          note: (w.foreman_note || w.advisor_note || '').trim(),
+          note: (w.foreman_note || '').trim(), foreman_note: (w.foreman_note || '').trim(), advisor_note: (w.advisor_note || '').trim(),
           status: w.status_label || w.status || 'Trong xưởng',
           warrantyStatus: w.warranty_status || w.dms_warranty_status || '',
           pinSerial: w.battery_serial_old || w.battery_serial_new || '',
