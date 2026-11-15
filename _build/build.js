@@ -26,17 +26,23 @@ const libPath = path.join(__dirname, 'xlsx.full.min.js');
 const tpl = fs.readFileSync(tplPath, 'utf-8');
 const lib = fs.readFileSync(libPath, 'utf-8');
 
-if (!tpl.includes('<!--SHEETJS-->')) {
+const marker = '<!--SHEETJS-->';
+const markerIdx = tpl.indexOf(marker);
+if (markerIdx === -1) {
   console.error('[Build Error] Marker <!--SHEETJS--> missing in app_template2.html');
   process.exit(1);
 }
 
-let out = tpl.replace('<!--SHEETJS-->', '<script>\n' + lib + '\n</script>');
+// Dùng slice thay vì String.replace để tránh lỗi JavaScript tự động mở rộng ký tự đặc biệt ($' và $&) trong minified JS
+let out = tpl.slice(0, markerIdx) + '<script>\n' + lib + '\n</script>' + tpl.slice(markerIdx + marker.length);
 out = out.replace(/__PASS_SHA__/g, sha).replace(/__PASS_FB__/g, fb);
 
-// Write root PhanTichBaoHanh.html
+// Write root PhanTichBaoHanh.html & index.html
 const rootHtml = path.join(ROOT_DIR, 'PhanTichBaoHanh.html');
 fs.writeFileSync(rootHtml, out, 'utf-8');
+
+const indexHtml = path.join(ROOT_DIR, 'index.html');
+fs.writeFileSync(indexHtml, out, 'utf-8');
 
 // Write _build/PhanTichBaoHanh.html
 const buildHtml = path.join(__dirname, 'PhanTichBaoHanh.html');
