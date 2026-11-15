@@ -3487,11 +3487,6 @@ window.parseDealerPortalJson = function(jsonData, srcName = 'Dealer Portal API (
     rec.date = parseDateVal(dVal);
     if (rec.date) dates.push(rec.date);
 
-    const inc = Number(c.totalRequestedAmountInclTax || c.amount || 0) || 0;
-    rec.totalInc = inc;
-    rec.totalEx = Math.round(inc / 1.1);
-    rec.total = inc;
-
     const cust = c.customer || {};
     rec.customerName = String(cust.customerName || c.customerName || '').trim();
     rec.customerCompanyName = String(cust.customerCompanyName || c.customerCompanyName || '').trim();
